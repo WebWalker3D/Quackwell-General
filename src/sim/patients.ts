@@ -29,6 +29,7 @@ import { chance, int, rand, range } from './rng';
 import type { Item, Patient, Room } from './state';
 import { gainXp, releaseSpot, staffed } from './staff';
 import { isRoomUnlocked } from './unlocks';
+import { binNear, dropLitter, litterNear, roomBroken, wearMachines } from './janitor';
 import type { Pt } from './path';
 import type { World } from './world';
 
@@ -103,7 +104,8 @@ function comfortAt(w: World, x: number, z: number) {
 function drainPatience(w: World, p: Patient, dt: number) {
   const base = p.pose === 'sit' ? PATIENCE_SIT : PATIENCE_STAND;
   const thirsty = p.thirst > 85 ? 1.3 : 1;
-  p.patience -= dt * base * thirsty * (1 - comfortAt(w, p.x, p.z));
+  const messy = litterNear(w.state, p.x, p.z) ? 1 + BALANCE.litterPatience : 1;
+  p.patience -= dt * base * thirsty * messy * (1 - comfortAt(w, p.x, p.z));
   p.waitedFor += dt;
   if (p.patience <= 0) leave(w, p, 'impatient');
 }
@@ -276,6 +278,10 @@ export function updateRooms(w: World, dt: number) {
   for (const room of w.state.rooms) {
     const svc = ROOMS[room.type].service;
     if (svc === 'none' || svc === 'research') continue;
+    if (roomBroken(w, room)) {
+      if (room.queue.length && !w.state.staff.some((x) => x.role === 'janitor')) w.hint('needJanitor', 'A machine is broken and patients are waiting. Hire a Janitor!', 'warn', 60);
+      continue;
+    }
     const st = staffed(w, room);
     if (st) st.busy = room.occupants.some((id) => w.patient(id)?.state === 'inRoom');
     if (!st) {
@@ -310,6 +316,7 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
   releaseSpot(w, p);
   room.occupants = room.occupants.filter((id) => id !== p.id);
   w.emit({ type: 'service', roomId: room.id, patientId: p.id, phase: 'end' });
+  wearMachines(w, room);
   if (def.service === 'gp' || def.service === 'diagnose') {
     let base = def.service === 'gp' ? BALANCE.gpBase + BALANCE.gpPerSkill * skill : BALANCE.scanBase + BALANCE.scanPerSkill * skill;
     if (trait === 'Sharp Eye') base += 8;
@@ -486,6 +493,11 @@ export function updatePatients(w: World, dt: number) {
           }
         }
         p.thought = p.target === -1 ? 'noRoom' : p.thirst > 70 ? 'thirsty' : p.patience < 30 ? 'impatient' : '';
+        p.litterT -= dt;
+        if (p.litterT <= 0) {
+          p.litterT = range(s.rng, BALANCE.wrapperMin, BALANCE.wrapperMax);
+          if (!(binNear(w, p.x, p.z) && rand(s.rng) < 0.7)) dropLitter(w, p.x + range(s.rng, -0.5, 0.5), p.z + range(s.rng, -0.5, 0.5), 'wrapper');
+        }
         drainPatience(w, p, dt);
         break;
       }
@@ -508,9 +520,13 @@ export function updatePatients(w: World, dt: number) {
         if (p.timer <= 0) {
           const it = p.spot ? w.item(p.spot.item) : undefined;
           if (it?.type === 'vending') {
-            const amount = Math.round(5 * s.priceMult);
+            const amount = Math.round((s.research.done.includes('fizzDeluxe') ? 12 : 5) * s.priceMult);
             earn(s, amount);
             w.emit({ type: 'paid', amount, x: p.x, z: p.z, label: 'Fizz' });
+          }
+          const dropChance = it?.type === 'vending' ? BALANCE.litterCan : it?.type === 'cooler' ? BALANCE.litterPuddle : 0;
+          if (dropChance > 0 && !binNear(w, p.x, p.z) && rand(s.rng) < dropChance) {
+            dropLitter(w, p.x + range(s.rng, -0.6, 0.6), p.z + range(s.rng, 0.3, 0.9), it?.type === 'cooler' ? 'puddle' : 'can');
           }
           p.thirst = 0;
           releaseSpot(w, p);

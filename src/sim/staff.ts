@@ -25,8 +25,9 @@ import { int, pick, rand, range } from './rng';
 import type { Item, Mover, Room, Staff } from './state';
 import type { CommandResult } from './events';
 import type { World } from './world';
+import { updateJanitor } from './janitor';
 
-export const HIRE_ROLES: Role[] = ['doctor', 'nurse', 'assistant'];
+export const HIRE_ROLES: Role[] = ['doctor', 'nurse', 'assistant', 'janitor'];
 
 const ENERGY_POST = 0.25;
 const ENERGY_BUSY = 0.45;
@@ -139,6 +140,7 @@ export function postSpot(w: World, st: Staff): { item: Item; idx: number } | nul
 }
 
 function unpost(w: World, st: Staff) {
+  st.job = null;
   const ps = postSpot(w, st);
   if (ps && ps.item.claims[ps.idx] === st.id) ps.item.claims[ps.idx] = -1;
   if (st.post >= 0) {
@@ -285,6 +287,10 @@ export function updateStaff(w: World, dt: number) {
   const s = w.state;
   for (const st of s.staff) {
     if (st.state !== 'leaving') needs(w, st, dt);
+    if (st.role === 'janitor' && (st.state === 'idle' || st.state === 'toJob' || st.state === 'doingJob')) {
+      updateJanitor(w, st, dt);
+      continue;
+    }
     switch (st.state) {
       case 'idle': {
         const post = findPost(w, st);

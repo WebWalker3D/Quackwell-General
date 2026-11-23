@@ -358,6 +358,10 @@ export const BALANCE = {
   spawnMin: 4, spawnRange: 14,
   nightSlowdown: 1.8,
   patienceStand: 0.5, patienceSit: 0.3,
+  litterCan: 0.45, litterPuddle: 0.2, wrapperMin: 120, wrapperMax: 240,
+  /** extra patience drain within 2 tiles of litter */
+  litterPatience: 0.35,
+  wearPerService: 7,
 };
 export const MAX_GP_VISITS = 3;
 

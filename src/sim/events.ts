@@ -32,6 +32,9 @@ export type SimEvent =
   | { type: 'promoted'; id: number; skill: number }
   | { type: 'trained'; id: number; skill: number }
   | { type: 'quit'; id: number }
+  | { type: 'broke'; itemId: number; roomId: number }
+  | { type: 'repaired'; itemId: number }
+  | { type: 'cleaned'; x: number; z: number }
   | { type: 'fired'; id: number }
   | { type: 'service'; roomId: number; patientId: number; phase: 'start' | 'end' }
   | { type: 'toast'; text: string; tone: 'info' | 'warn' | 'good' | 'bad' }
