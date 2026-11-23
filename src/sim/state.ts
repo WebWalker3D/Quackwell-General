@@ -140,7 +140,7 @@ export interface Patient extends Mover {
 
 export interface Candidate { id: number; role: Role; name: string; skill: number; salary: number; trait: string; look: number }
 
-export interface Stats { cured: number; failed: number; left: number; visits: number; earned: number; spent: number }
+export interface Stats { cured: number; failed: number; left: number; visits: number; earned: number; spent: number; emergencies: number; inspection: number }
 
 export interface Litter { id: number; x: number; z: number; kind: 'can' | 'wrapper' | 'puddle'; t: number }
 
@@ -179,12 +179,13 @@ export interface WorldState {
   yearStats: Stats;
   /** goal id → game time it was met */
   goals: Record<string, number>;
+  stars: number;
 }
 
 export interface Ctx { state: WorldState; grid: Grid }
 
 export function emptyStats(): Stats {
-  return { cured: 0, failed: 0, left: 0, visits: 0, earned: 0, spent: 0 };
+  return { cured: 0, failed: 0, left: 0, visits: 0, earned: 0, spent: 0, emergencies: 0, inspection: 0 };
 }
 
 export function createState(seed = 1): WorldState {
@@ -214,5 +215,6 @@ export function createState(seed = 1): WorldState {
     nextEventAt: 450 * 2.5,
     yearStats: emptyStats(),
     goals: {},
+    stars: 0,
   };
 }

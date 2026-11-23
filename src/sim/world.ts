@@ -29,6 +29,7 @@ import { BALANCE, ILLNESSES, type IllnessType } from './catalog';
 import { stop } from './move';
 import { boosts, chooseResearch, updateResearch } from './research';
 import { giveAwards, updateHappenings } from './happenings';
+import { evaluateStars, scenarioById } from './scenarios';
 
 export interface WorldOptions {
   /** spawn patients automatically (default true) */
@@ -42,6 +43,7 @@ export class World {
   grid: Grid;
   opts: WorldOptions;
   private events: SimEvent[] = [];
+  private starClock = 0;
 
   constructor(state: WorldState = createState(), opts: WorldOptions = {}) {
     this.state = state;
@@ -99,6 +101,15 @@ export class World {
     updatePatients(this, dt);
     updateHappenings(this, dt);
     s.patients = s.patients.filter((p) => p.state !== 'gone');
+    this.starClock -= dt;
+    if (this.starClock <= 0) {
+      this.starClock = 1;
+      const stars = evaluateStars(s);
+      if (stars > s.stars) {
+        s.stars = stars;
+        this.emit({ type: 'star', stars, scenario: s.scenario });
+      }
+    }
   }
 
   private monthCheck() {
@@ -142,7 +153,7 @@ export class World {
     const base = BALANCE.spawnMin + BALANCE.spawnRange * repF;
     const night = isNight(s.t) ? BALANCE.nightSlowdown : 1;
     const ease = s.t < MONTH ? 1.5 : 1;
-    s.spawnTimer = (base * night * ease * Math.pow(s.priceMult, 1.2) * range(s.rng, 0.6, 1.4)) / boosts(s).arrivals;
+    s.spawnTimer = (base * night * ease * Math.pow(s.priceMult, 1.2) * range(s.rng, 0.6, 1.4)) / (boosts(s).arrivals * scenarioById(s.scenario).spawnMult);
   }
 
   cmd(c: Command): CommandResult {

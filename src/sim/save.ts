@@ -39,6 +39,8 @@ export function migrateState(s: WorldState): WorldState {
   d.nextEventAt ??= Math.max(d.t + 450, 450 * 2.5);
   d.yearStats ??= emptyStats();
   d.goals ??= {};
+  d.stars ??= 0;
+  for (const st of [d.stats, d.monthStats, d.yearStats]) { st.emergencies ??= 0; st.inspection ??= 0; }
   for (const st of d.staff) {
     st.energy ??= 100;
     st.mood ??= 80;

@@ -20,6 +20,7 @@ import { DIRS, DIR_VEC, Grid, LOT_H, LOT_W, applyShell, type Dir } from './grid'
 import { ITEMS, ROOMS, roomCost, type ItemType, type Pose, type RoomType, type SpotDef } from './catalog';
 import type { Ctx, DoorSpec, Item, Rect, Room, WorldState } from './state';
 import { isItemUnlocked, isRoomUnlocked } from './unlocks';
+import { scenarioById } from './scenarios';
 
 // ---------- item geometry ----------
 
@@ -95,7 +96,7 @@ export function rebuildGrid(state: WorldState): Grid {
 }
 
 export function rebuildGridInto(g: Grid, state: WorldState) {
-  applyShell(g);
+  applyShell(g, scenarioById(state.scenario).building);
   for (const r of state.rooms) {
     const { x, z, w, h } = r.rect;
     for (let tz = z; tz < z + h; tz++) for (let tx = x; tx < x + w; tx++) g.roomAt[g.idx(tx, tz)] = r.id;

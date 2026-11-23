@@ -31,6 +31,7 @@ import { gainXp, releaseSpot, staffed } from './staff';
 import { isRoomUnlocked } from './unlocks';
 import { binNear, dropLitter, litterNear, roomBroken, wearMachines } from './janitor';
 import { boosts } from './research';
+import { scenarioById } from './scenarios';
 import type { Pt } from './path';
 import type { World } from './world';
 
@@ -44,13 +45,19 @@ const THIRST_RATE = 0.3;
 const PATIENCE_STAND = BALANCE.patienceStand;
 const PATIENCE_SIT = BALANCE.patienceSit;
 
-function pickIllness(w: World): IllnessType {
-  const mi = calendar(w.state.t).monthIndex;
-  const pool = (Object.keys(ILLNESSES) as IllnessType[]).filter((k) => ILLNESSES[k].month <= mi);
-  const total = pool.reduce((a, k) => a + ILLNESSES[k].weight, 0);
-  let r = rand(w.state.rng) * total;
+/** Weighted illness pick using the scenario's pool, unlock months and weights. */
+export function pickIllnessFor(w: World): IllnessType {
+  const s = w.state;
+  const sc = scenarioById(s.scenario);
+  const mi = calendar(s.t).monthIndex;
+  const all = (sc.pool ?? (Object.keys(ILLNESSES) as IllnessType[]));
+  const pool = all.filter((k) => s.sandbox || (sc.months?.[k] ?? ILLNESSES[k].month) <= mi);
+  if (!pool.length) return 'chromaticFlu';
+  const weight = (k: IllnessType) => ILLNESSES[k].weight * (sc.weights?.[k] ?? 1);
+  const total = pool.reduce((a, k) => a + weight(k), 0);
+  let r = rand(s.rng) * total;
   for (const k of pool) {
-    r -= ILLNESSES[k].weight;
+    r -= weight(k);
     if (r <= 0) return k;
   }
   return pool[0];
@@ -58,7 +65,7 @@ function pickIllness(w: World): IllnessType {
 
 export function spawnPatient(w: World, illness?: IllnessType, opts: SpawnOpts = {}): Patient {
   const s = w.state;
-  const ill = illness ?? pickIllness(w);
+  const ill = illness ?? pickIllnessFor(w);
   const fromLeft = chance(s.rng, 0.5);
   const x = opts.at?.x ?? (illness ? 21.5 + range(s.rng, -1, 2) : fromLeft ? 0.5 : 47.5);
   const z = opts.at?.z ?? 33.5 + range(s.rng, -0.3, 0.3);

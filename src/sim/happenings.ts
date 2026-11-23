@@ -24,6 +24,7 @@ import { chance, int, pick, range } from './rng';
 import { staffed } from './staff';
 import type { Stats } from './state';
 import type { World } from './world';
+import { scenarioById } from './scenarios';
 
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -68,8 +69,9 @@ function avgQueue(w: World) {
 }
 
 function finish(w: World) {
+  const [a, b] = scenarioById(w.state.scenario).eventEvery;
   w.state.event = null;
-  w.state.nextEventAt = w.state.t + MONTH * range(w.state.rng, 1, 2);
+  w.state.nextEventAt = w.state.t + MONTH * range(w.state.rng, a, b);
 }
 
 export function updateHappenings(w: World, dt: number) {
@@ -85,6 +87,7 @@ export function updateHappenings(w: World, dt: number) {
       if (success) {
         earn(s, ev.reward);
         adjustRep(s, 5);
+        s.stats.emergencies++;
       } else adjustRep(s, -4);
       const text = success
         ? `Emergency handled: ${ev.cured} of ${ev.ids.length} cured. ${fmt(ev.reward)} bonus!`
@@ -110,6 +113,7 @@ export function updateHappenings(w: World, dt: number) {
       const n = Math.max(1, ev.samples);
       const stars = inspectionStars(ev.cleanSum / n, ev.decorSum / n, ev.queueSum / n, ev.brokenSum / n);
       adjustRep(s, (stars - 3) * 2);
+      s.stats.inspection = Math.max(s.stats.inspection, stars);
       const bonus = stars >= 4 ? 5000 * (stars - 3) : 0;
       if (bonus) earn(s, bonus);
       const text = `Inspection report: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}.${bonus ? ` Bonus grant of ${fmt(bonus)}!` : stars <= 2 ? ' The local paper is not kind.' : ''}`;
@@ -123,7 +127,8 @@ export function updateHappenings(w: World, dt: number) {
   if (!w.opts.autoSpawn || s.t < s.nextEventAt) return;
   const treatable = (Object.keys(ILLNESSES) as IllnessType[]).filter((k) => s.rooms.some((r) => r.type === ILLNESSES[k].room && staffed(w, r)));
   const hasDesk = s.items.some((i) => i.type === 'reception');
-  if (treatable.length && (chance(s.rng, 0.6) || !hasDesk)) startEmergency(w, pick(s.rng, treatable), int(s.rng, 5, 8));
+  const sc = scenarioById(s.scenario);
+  if (treatable.length && (chance(s.rng, sc.emergencyChance) || !hasDesk)) startEmergency(w, pick(s.rng, treatable), int(s.rng, 5, 8));
   else if (hasDesk) startInspection(w);
   else s.nextEventAt = s.t + MONTH;
 }

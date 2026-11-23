@@ -39,6 +39,7 @@ export type SimEvent =
   | { type: 'eventStart'; kind: 'emergency' | 'inspection'; text: string }
   | { type: 'eventEnd'; kind: 'emergency' | 'inspection'; success: boolean; stars?: number; text: string }
   | { type: 'awards'; year: number; won: string[]; lost: string[]; bonus: number }
+  | { type: 'star'; stars: number; scenario: string }
   | { type: 'fired'; id: number }
   | { type: 'service'; roomId: number; patientId: number; phase: 'start' | 'end' }
   | { type: 'toast'; text: string; tone: 'info' | 'warn' | 'good' | 'bad' }

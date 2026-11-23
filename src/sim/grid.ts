@@ -143,12 +143,14 @@ export function createLot(): Grid {
   return g;
 }
 
+export const DEFAULT_BUILDING: BuildingRect = { x: 8, z: 6, w: 28, h: 22, entrance: { x: 21, z: 27 } };
+
 /** Reset rooms/blocks/walls and lay down the building's outer walls. */
-export function applyShell(g: Grid) {
+export function applyShell(g: Grid, building: BuildingRect = DEFAULT_BUILDING) {
   g.walls.clear();
   g.roomAt.fill(-1);
   g.blocked.fill(0);
-  const b: BuildingRect = { x: 8, z: 6, w: 28, h: 22, entrance: { x: 21, z: 27 } };
+  const b: BuildingRect = { ...building, entrance: { ...building.entrance } };
   g.building = b;
   const x1 = b.x + b.w - 1;
   const z1 = b.z + b.h - 1;
