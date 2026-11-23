@@ -38,6 +38,7 @@ import { Input } from './ui/input';
 import { Hud } from './ui/hud';
 import { Sfx } from './audio/sfx';
 import { deserialize, serialize } from './sim/save';
+import { createScenarioState } from './sim/scenarios';
 import { readSave, writeSave, type Slot } from './ui/storage';
 import { calendar, monthLabel } from './sim/economy';
 import { startEmergency, startInspection } from './sim/happenings';
@@ -57,6 +58,8 @@ function bootWorld(): World {
     if (res.ok) return new World(res.state);
     loadError = `Couldn't load that save: ${res.reason}. Starting a fresh hospital instead.`;
   }
+  const play = params.get('play');
+  if (play) return new World(createScenarioState(play, undefined, params.has('sandbox')));
   return new World();
 }
 const world = bootWorld();

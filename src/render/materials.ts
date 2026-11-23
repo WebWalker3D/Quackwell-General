@@ -29,11 +29,11 @@ function memo<T extends THREE.Material>(key: string, make: () => T): T {
 
 const FLOOR_ROUGH: Record<string, number> = {
   corridor: 0.22, mint: 0.25, white: 0.12, wood: 0.38, plank: 0.55, carpet: 0.95, lino: 0.32, rubber: 0.8,
-  grass: 0.95, asphalt: 0.85, paving: 0.75, path: 0.8, cork: 0.7, rose: 0.95,
+  grass: 0.95, asphalt: 0.85, paving: 0.75, path: 0.8, cork: 0.7, rose: 0.95, snow: 0.55, sand: 0.95, gravel: 0.95, plaza: 0.7,
 };
 
 /** Textured floor/ground material. Geometry UVs must be world xz / texture scale. */
-export function floorMat(kind: FloorKind | Extract<TexKind, 'grass' | 'asphalt' | 'paving' | 'path'>): THREE.MeshStandardMaterial {
+export function floorMat(kind: FloorKind | Extract<TexKind, 'grass' | 'asphalt' | 'paving' | 'path' | 'snow' | 'sand' | 'gravel' | 'plaza'>): THREE.MeshStandardMaterial {
   return memo(`floor:${kind}`, () => {
     const t = tex(kind as TexKind);
     const m = new THREE.MeshStandardMaterial({

@@ -343,7 +343,8 @@ function wallpaper(scale: number) {
 
 export type TexKind =
   | 'corridor' | 'wood' | 'mint' | 'white' | 'lino' | 'rubber' | 'plank' | 'carpet'
-  | 'grass' | 'asphalt' | 'paving' | 'path' | 'brick' | 'wallpaper' | 'cork' | 'rose';
+  | 'grass' | 'asphalt' | 'paving' | 'path' | 'brick' | 'wallpaper' | 'cork' | 'rose'
+  | 'snow' | 'sand' | 'gravel' | 'plaza';
 
 const cache = new Map<TexKind, TexSet>();
 
@@ -360,6 +361,10 @@ export function tex(kind: TexKind): TexSet {
     case 'plank': t = wood('#e2b27a', '#8a5a2c', 5, 2); break;
     case 'carpet': t = fuzz('#8a63d2', ['#a07ae6', '#6f4cb8', '#9b72e0'], 2); break;
     case 'cork': t = lino('#c99a6b', ['#a7774a', '#e0b88c', '#8a5a2c'], 2); break;
+    case 'snow': t = fuzz('#eef5fb', ['#ffffff', '#d9e7f5', '#e6f0fa', '#cfe0f2'], 6, 1.2); break;
+    case 'sand': t = fuzz('#efd9a7', ['#f6e5bd', '#e3c98f', '#d9bd85', '#fff0cc'], 6, 1.4); break;
+    case 'gravel': t = fuzz('#8d8a83', ['#a29f97', '#6f6c66', '#b5b1a8', '#5f5c57'], 6, 2.2); break;
+    case 'plaza': t = paving('#d8d3c9', '#c9c3b6', 6, 6); break;
     case 'rose': t = fuzz('#f2a7c3', ['#ffc4d9', '#e48aad', '#f7b5cd'], 2); break;
     case 'lino': t = lino('#b8dcf7', ['#ffffff', '#8fc3ea', '#d8ecfb'], 2); break;
     case 'rubber': t = rubber(2); break;

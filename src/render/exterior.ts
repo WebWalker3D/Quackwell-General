@@ -22,11 +22,14 @@ import { floorMat, glow, glass, matte, metal, plastic, texScale } from './materi
 import { radialTex, tex } from './textures';
 import { fx, windSway, worldMapped } from './shaderfx';
 import type { Preset } from './engine';
+import type { BuildingRect } from '../sim/grid';
+import type { Theme } from '../sim/scenarios';
+import { addThemeProps, type ThemeExtras } from './themes';
 import { bake } from './itemMeshes';
 
 type Rect = { x0: number; z0: number; x1: number; z1: number };
 
-/** Areas where grass blades must not grow. */
+/** Areas where grass blades and trees must not grow (index 0 is the building, set per map). */
 const HARD: Rect[] = [
   { x0: 7.4, z0: 5.4, x1: 36.6, z1: 28.6 }, // building plinth
   { x0: 16.6, z0: 28, x1: 27.4, z1: 31.2 }, // plaza
@@ -35,7 +38,20 @@ const HARD: Rect[] = [
   { x0: -400, z0: 32.6, x1: 400, z1: 39.4 }, // sidewalks + road
   { x0: 11.2, z0: 28.9, x1: 15.8, z1: 32.1 }, // fountain
 ];
-const inHard = (x: number, z: number) => HARD.some((r) => x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1);
+const inHard = (x: number, z: number, m = 0) => HARD.some((r) => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
+const overlapsHard = (x0: number, z0: number, x1: number, z1: number) => HARD.some((r) => x0 < r.x1 && x1 > r.x0 && z0 < r.z1 && z1 > r.z0);
+
+export interface ExteriorOptions { building: BuildingRect; theme: Theme; name: string }
+
+const GROUND: Record<Theme, 'grass' | 'snow' | 'sand' | 'gravel' | 'plaza'> = { meadow: 'grass', snow: 'snow', beach: 'sand', industrial: 'gravel', city: 'plaza' };
+const GRASS_FACTOR: Record<Theme, number> = { meadow: 1, snow: 0, beach: 0.12, industrial: 0.15, city: 0 };
+const GRASS_COLS: Record<Theme, string[]> = {
+  meadow: ['#6fbf3f', '#5aae35', '#82cc4a', '#4f9f30', '#9bd65a'],
+  snow: ['#dfeee6', '#c7dccf', '#f2f8f4', '#b9cfc0'],
+  beach: ['#b9c76a', '#a8b85a', '#d1d88a', '#93a64a'],
+  industrial: ['#7f9a5a', '#6b8550', '#94a86e'],
+  city: ['#6fbf3f', '#5aae35', '#82cc4a'],
+};
 
 function rng(seed: number) {
   let s = seed;
@@ -194,8 +210,15 @@ export class Exterior {
   private fountainLights = glow('#7fe0ff', 0).clone();
   private grass: THREE.InstancedMesh | null = null;
 
-  constructor(private scene: THREE.Scene, private preset: Preset) {
+  readonly theme: Theme;
+  private b: BuildingRect;
+  extras: ThemeExtras | null = null;
+
+  constructor(private scene: THREE.Scene, private preset: Preset, private opts: ExteriorOptions) {
     scene.add(this.group);
+    this.theme = opts.theme;
+    this.b = opts.building;
+    HARD[0] = { x0: this.b.x - 0.6, z0: this.b.z - 0.6, x1: this.b.x + this.b.w + 0.6, z1: this.b.z + this.b.h + 0.6 };
     this.poolMat = new THREE.MeshBasicMaterial({ map: radialTex(), color: '#ffc77a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     this.ground();
     this.roadAndPaths();
@@ -205,17 +228,20 @@ export class Exterior {
     this.vehicles();
     this.fountain();
     this.sign();
-    this.town();
+    if (this.theme === 'meadow' || this.theme === 'snow') this.town();
+    this.extras = addThemeProps(this.group, this.theme, this.b, (x0, z0, x1, z1) => overlapsHard(x0, z0, x1, z1));
     this.setGrass(preset.grass);
   }
 
   private ground() {
-    const big = plane(700, 700, -326, -330, -0.02, floorMat('grass'), texScale('grass'));
+    const gk = GROUND[this.theme];
+    const big = plane(700, 700, -326, -330, -0.02, floorMat(gk), texScale(gk));
     this.group.add(big);
     const plinthMat = new THREE.MeshStandardMaterial({ color: '#e9e2d6', roughness: 0.85, map: tex('paving').map });
     worldMapped(plinthMat, 2);
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(29.2, 0.24, 23.2), plinthMat);
-    plinth.position.set(22, -0.125, 17);
+    const b = this.b;
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(b.w + 1.2, 0.24, b.h + 1.2), plinthMat);
+    plinth.position.set(b.x + b.w / 2, -0.125, b.z + b.h / 2);
     plinth.receiveShadow = true;
     this.group.add(plinth);
     // entrance steps
@@ -273,7 +299,7 @@ export class Exterior {
   }
 
   private hedgesAndBeds() {
-    const leaf = new THREE.MeshStandardMaterial({ color: '#3f8f3a', roughness: 0.85, map: tex('carpet').map, normalMap: tex('carpet').normalMap });
+    const leaf = new THREE.MeshStandardMaterial({ color: this.theme === 'snow' ? '#cfe3d6' : this.theme === 'beach' ? '#6f9e3a' : '#3f8f3a', roughness: 0.85, map: tex('carpet').map, normalMap: tex('carpet').normalMap });
     leaf.map = tex('grass').map;
     const runs: [number, number][] = [[-10, 11.2], [15.8, 19.4], [24.6, 27.4], [36.2, 56]];
     for (const [a, b] of runs) {
@@ -290,7 +316,8 @@ export class Exterior {
     const palette = ['#ff6fa8', '#ffd447', '#ffffff', '#b78bff', '#ff8552', '#6fd3ff'].map((c) => new THREE.Color(c));
     let n = 0;
     const m = new THREE.Matrix4();
-    for (const [bx, bz, bw, bd] of [[17.0, 28.3, 2.6, 1.1], [24.4, 28.3, 2.6, 1.1], [3, 26, 3.5, 1.4], [40, 24, 3, 1.4]] as const) {
+    for (const [bx, bz, bw, bd] of [[17.0, 28.3, 2.6, 1.1], [24.4, 28.3, 2.6, 1.1], [0.5, 29.5, 3.5, 1.4], [40, 29.4, 3, 1.4]] as const) {
+      if (bz < 28 && overlapsHard(bx, bz, bx + bw, bz + bd)) continue;
       const bed = new THREE.Mesh(new RoundedBoxGeometry(bw, 0.24, bd, 3, 0.08), soil);
       bed.position.set(bx + bw / 2, 0.08, bz + bd / 2);
       bed.receiveShadow = true;
@@ -318,8 +345,12 @@ export class Exterior {
   private trees() {
     const specs: TreeSpec[] = [];
     const r = rng(7);
+    if (this.theme === 'beach' || this.theme === 'city') return;
     const add = (x: number, z: number, kind: TreeSpec['kind'], s = 0.85 + r() * 0.4) => {
-      if (!inHard(x, z)) specs.push({ x, z, kind, s });
+      if (inHard(x, z, 1.6)) return;
+      if (this.theme === 'snow' && kind === 'blossom') kind = 'pine';
+      if (this.theme === 'industrial' && r() < 0.45) return;
+      specs.push({ x, z, kind, s });
     };
     // behind the hospital
     for (let i = 0; i < 9; i++) add(4 + i * 5 + r() * 2, 1.2 + r() * 2.5, r() > 0.6 ? 'pine' : 'round');
@@ -350,9 +381,9 @@ export class Exterior {
     let nb = 0, nc = 0;
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
-    const greens = ['#5cb84a', '#4aa83f', '#73c24f', '#3f9a4a'].map((c) => new THREE.Color(c));
+    const greens = (this.theme === 'snow' ? ['#e9f2f5', '#d6e6ea', '#f5fafc'] : this.theme === 'industrial' ? ['#6f8f4a', '#5d7d42', '#7d9a58'] : ['#5cb84a', '#4aa83f', '#73c24f', '#3f9a4a']).map((c) => new THREE.Color(c));
     const pinks = ['#ffb3d1', '#ff9cc4', '#ffc7de'].map((c) => new THREE.Color(c));
-    const pineCols = ['#2f7d4f', '#2a6e48', '#38895a'].map((c) => new THREE.Color(c));
+    const pineCols = (this.theme === 'snow' ? ['#e6f0f2', '#2f6e4f', '#f2f8fa'] : ['#2f7d4f', '#2a6e48', '#38895a']).map((c) => new THREE.Color(c));
     specs.forEach((t, i) => {
       m.compose(new THREE.Vector3(t.x, 0, t.z), q.setFromEuler(new THREE.Euler(0, r() * 6, 0)), new THREE.Vector3(t.s, t.s * (t.kind === 'pine' ? 0.9 : 1), t.s));
       trunks.setMatrixAt(i, m);
@@ -382,7 +413,8 @@ export class Exterior {
     this.group.add(trunks, blobs, cones);
   }
 
-  setGrass(count: number) {
+  setGrass(count0: number) {
+    const count = Math.floor(count0 * GRASS_FACTOR[this.theme]);
     if (this.grass) {
       this.group.remove(this.grass);
       this.grass.geometry.dispose();
@@ -396,7 +428,7 @@ export class Exterior {
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const e = new THREE.Euler();
-    const cols = ['#6fbf3f', '#5aae35', '#82cc4a', '#4f9f30', '#9bd65a'].map((c) => new THREE.Color(c));
+    const cols = GRASS_COLS[this.theme].map((c) => new THREE.Color(c));
     let n = 0;
     for (let tries = 0; n < count && tries < count * 4; tries++) {
       // denser near the hospital, sparser at the fringe
@@ -536,10 +568,13 @@ export class Exterior {
       ctx.font = '700 118px "Baloo 2", system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('QUACKWELL', 512, 100);
+      const words = this.opts.name.toUpperCase().split(' ');
+      const big = words[0];
+      ctx.font = `700 ${big.length > 9 ? 100 : 118}px "Baloo 2", system-ui, sans-serif`;
+      ctx.fillText(big, 512, 100);
       ctx.fillStyle = '#9ff0ff';
-      ctx.font = '700 64px "Baloo 2", system-ui, sans-serif';
-      ctx.fillText('✚  GENERAL HOSPITAL  ✚', 512, 196);
+      ctx.font = '700 60px "Baloo 2", system-ui, sans-serif';
+      ctx.fillText(`✚  ${(words.slice(1).join(' ') || 'HOSPITAL')}  ✚`, 512, 196);
       t.needsUpdate = true;
     };
     const t = new THREE.CanvasTexture(c);
@@ -564,13 +599,14 @@ export class Exterior {
   private town() {
     const r = rng(1234);
     const wallCols = ['#ffe3c2', '#ffd1dc', '#d7f0ff', '#e3ffd6', '#fff4b8', '#e8dcff'];
-    const roofCols = ['#d9534f', '#5b7db1', '#4f9d69', '#c06c3e', '#7a5c99'];
+    const roofCols = this.theme === 'snow' ? ['#f4f8fb', '#eaf2f8'] : ['#d9534f', '#5b7db1', '#4f9d69', '#c06c3e', '#7a5c99'];
     const spots: [number, number][] = [];
     for (let i = 0; i < 9; i++) spots.push([-8 + i * 8 + r() * 3, -12 - r() * 6]);
     for (let i = 0; i < 4; i++) spots.push([-16 - r() * 4, 2 + i * 8]);
     for (let i = 0; i < 4; i++) spots.push([62 + r() * 4, 2 + i * 8]);
     for (const [x, z] of spots) {
       const w = 3.5 + r() * 2, d = 3 + r() * 2, h = 2.4 + r() * 2.5;
+      if (overlapsHard(x - w, z - d, x + w, z + d)) continue;
       const g = new THREE.Group();
       const body = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, 0.08), plastic(wallCols[(r() * wallCols.length) | 0], 0.7, 0.2));
       body.position.y = h / 2;
@@ -592,6 +628,7 @@ export class Exterior {
   }
 
   update(dt: number, time: number, night: number, alarm = false) {
+    this.extras?.update(time, night);
     for (const c of this.cars) {
       c.x += c.speed * dt;
       if (c.x > 110) c.x = -70;

@@ -29,6 +29,7 @@ import { Floaters } from './floaters';
 import type { SimEvent } from '../sim/events';
 import { ILLNESSES, ITEMS, ROOMS } from '../sim/catalog';
 import { LitterView } from './litterView';
+import { scenarioById } from '../sim/scenarios';
 
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -45,12 +46,15 @@ export class View {
   todOverride: number | null = null;
   weather = { rain: 0, snow: 0, target: 'clear' as 'clear' | 'rain' | 'snow', next: 40 };
   weatherOverride: 'clear' | 'rain' | 'snow' | null = null;
+  private scenarioWeather: 'snow' | 'rain' | null = null;
   onEvent: ((e: SimEvent) => void)[] = [];
   private started = false;
   private v = new THREE.Vector3();
 
   constructor(readonly engine: Engine, public world: World, overlay: HTMLElement) {
-    this.exterior = new Exterior(engine.scene, engine.preset);
+    const sc = scenarioById(world.state.scenario);
+    this.scenarioWeather = sc.weather ?? null;
+    this.exterior = new Exterior(engine.scene, engine.preset, { building: world.grid.building, theme: sc.theme, name: sc.name });
     this.building = new BuildingView(engine.scene, engine.preset);
     this.items = new ItemsView(engine.scene);
     this.chars = new Characters(engine.scene);
@@ -206,7 +210,7 @@ export class View {
       w.target = winter ? (r < 0.55 ? 'snow' : 'clear') : r < 0.3 ? 'rain' : 'clear';
       w.next = 50 + Math.random() * 70;
     }
-    const target = this.weatherOverride ?? w.target;
+    const target = this.weatherOverride ?? this.scenarioWeather ?? w.target;
     const k = 1 - Math.exp(-0.4 * dt);
     w.rain += ((target === 'rain' ? 1 : 0) - w.rain) * k;
     w.snow += ((target === 'snow' ? 1 : 0) - w.snow) * k;
@@ -247,6 +251,7 @@ export class View {
       const a = Math.random() * Math.PI * 2;
       this.particles.spawn('water', this.v.set(13.5, 1.55, 30.5), new THREE.Vector3(Math.cos(a) * 0.9, 2.2 + Math.random() * 0.5, Math.sin(a) * 0.9));
     }
+    for (const p of this.exterior.extras?.smokeStacks ?? []) this.particles.emit(`stack:${p.x.toFixed(0)}`, 'smoke', p, 5, dt, 0.4);
     this.particles.update(dt);
     this.floaters.update(dt);
     this.started = true;
