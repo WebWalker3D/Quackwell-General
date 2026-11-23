@@ -69,6 +69,7 @@ export function hireCandidate(w: World, candidateId: number): CommandResult {
     id: s.nextId++, x, z, px: x, pz: z, face: Math.PI, path: [], pathI: 0, dest: null, pathVer: 0,
     speed: c.trait === 'Speedy' ? 2.4 : 2.0, pose: 'stand', spot: null, name: c.name, look: c.look,
     role: c.role, skill: c.skill, salary, trait: c.trait, state: 'idle', post: -1, busy: false, hiredAt: s.t,
+    energy: 100, mood: 80, xp: 0, trainLeft: 0, job: null,
   };
   s.staff.push(st);
   s.candidates = s.candidates.filter((x) => x.id !== candidateId);

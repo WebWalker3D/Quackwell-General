@@ -45,6 +45,8 @@ export class World {
     this.state = state;
     this.opts = { autoSpawn: true, ...opts };
     this.grid = rebuildGrid(state);
+    // paths stored in a save are still valid for the rebuilt grid; don't let them re-plan
+    for (const m of [...state.staff, ...state.patients] as Mover[]) m.pathVer = this.grid.version;
     if (!state.candidates.length) genCandidates(this);
   }
 

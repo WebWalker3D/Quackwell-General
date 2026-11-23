@@ -65,7 +65,7 @@ export function spawnPatient(w: World, illness?: IllnessType, opts: SpawnOpts = 
     speed: speed * range(s.rng, 0.9, 1.1), pose: 'stand', spot: null, name: randomName(s.rng), look: int(s.rng, 0, 1 << 20),
     illness: ill, diagnosed: false, certainty: 0, patience: 100, thirst: range(s.rng, 0, 45), happiness: 70,
     gpVisits: 0, scans: 0, state: 'arriving', need: null, target: -1, desk: -1, timer: 0, cured: false,
-    leaveReason: '', thought: '', waitedFor: 0, arrivedAt: s.t,
+    leaveReason: '', thought: '', waitedFor: 0, arrivedAt: s.t, emergency: false, vip: false, litterT: range(s.rng, 60, 200),
   };
   s.patients.push(p);
   const e = w.grid.building.entrance;

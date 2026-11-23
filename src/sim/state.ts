@@ -50,6 +50,9 @@ export interface Item {
   claims: number[];
   /** reception desks: patient ids in line, front first */
   queue: number[];
+  /** 0..100 for machines that wear out */
+  wear: number;
+  broken: boolean;
   cost: number;
   builtAt: number;
 }
@@ -75,7 +78,12 @@ export interface Mover {
   look: number;
 }
 
-export type StaffState = 'idle' | 'toPost' | 'atPost' | 'leaving';
+export type StaffState =
+  | 'idle' | 'toPost' | 'atPost' | 'leaving'
+  | 'toBreak' | 'onBreak' | 'toTraining' | 'training'
+  | 'toJob' | 'doingJob';
+
+export interface JanitorJob { kind: 'litter' | 'repair'; id: number; timer: number }
 export interface Staff extends Mover {
   role: Role;
   skill: number;
@@ -86,6 +94,14 @@ export interface Staff extends Mover {
   post: number;
   busy: boolean;
   hiredAt: number;
+  /** 0..100; low energy sends staff on a break */
+  energy: number;
+  /** 0..100; staff quit at 0 */
+  mood: number;
+  xp: number;
+  /** seconds of training left while training */
+  trainLeft: number;
+  job: JanitorJob | null;
 }
 
 export type PatientState =
@@ -116,11 +132,23 @@ export interface Patient extends Mover {
   thought: string;
   waitedFor: number;
   arrivedAt: number;
+  emergency: boolean;
+  vip: boolean;
+  /** countdown to dropping a wrapper while waiting */
+  litterT: number;
 }
 
 export interface Candidate { id: number; role: Role; name: string; skill: number; salary: number; trait: string; look: number }
 
 export interface Stats { cured: number; failed: number; left: number; visits: number; earned: number; spent: number }
+
+export interface Litter { id: number; x: number; z: number; kind: 'can' | 'wrapper' | 'puddle'; t: number }
+
+export interface ResearchState { points: number; current: string | null; done: string[] }
+
+export type ActiveEvent =
+  | { kind: 'emergency'; illness: string; ids: number[]; endsAt: number; needed: number; reward: number }
+  | { kind: 'inspection'; vipId: number; endsAt: number; samples: number; cleanSum: number; queueSum: number };
 
 export interface WorldState {
   money: number;
@@ -140,6 +168,17 @@ export interface WorldState {
   spawnTimer: number;
   lastMonth: number;
   hints: Record<string, number>;
+  /** save format version */
+  version: number;
+  scenario: string;
+  sandbox: boolean;
+  litter: Litter[];
+  research: ResearchState;
+  event: ActiveEvent | null;
+  nextEventAt: number;
+  yearStats: Stats;
+  /** goal id → game time it was met */
+  goals: Record<string, number>;
 }
 
 export interface Ctx { state: WorldState; grid: Grid }
@@ -166,5 +205,14 @@ export function createState(seed = 1): WorldState {
     spawnTimer: 4,
     lastMonth: 0,
     hints: {},
+    version: 2,
+    scenario: 'quackwell',
+    sandbox: false,
+    litter: [],
+    research: { points: 0, current: null, done: [] },
+    event: null,
+    nextEventAt: 450 * 2.5,
+    yearStats: emptyStats(),
+    goals: {},
   };
 }
