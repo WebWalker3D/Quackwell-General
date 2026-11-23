@@ -184,6 +184,13 @@ export interface WorldState {
 
 export interface Ctx { state: WorldState; grid: Grid }
 
+/** Patients in the hospital, not counting a visiting health inspector. */
+export function patientCount(s: WorldState): number {
+  let n = 0;
+  for (const p of s.patients) if (!p.vip) n++;
+  return n;
+}
+
 export function emptyStats(): Stats {
   return { cured: 0, failed: 0, left: 0, visits: 0, earned: 0, spent: 0, emergencies: 0, inspection: 0 };
 }

@@ -162,6 +162,11 @@ export function evaluateStars(s: WorldState): number {
   return stars;
 }
 
+/** The Quackwell "getting started" checklist only makes sense in the first town, outside sandbox. */
+export function starterGoalsActive(s: WorldState): boolean {
+  return s.scenario === 'quackwell' && !s.sandbox;
+}
+
 export interface Progress { stars: Record<string, number> }
 
 export function parseProgress(raw: string | null): Progress {

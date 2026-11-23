@@ -30,7 +30,8 @@ import { RESEARCH, availableResearch, researchDef } from '../sim/research';
 import { TRAIN_COST_PER_STAR, XP_PER_STAR } from '../sim/staff';
 import { SLOTS, saveMeta, type Slot } from './storage';
 import { DAY } from '../sim/economy';
-import { goalId, goalValue, scenarioById } from '../sim/scenarios';
+import { goalId, goalValue, scenarioById, starterGoalsActive } from '../sim/scenarios';
+import { patientCount } from '../sim/state';
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -424,7 +425,7 @@ export class Hud {
             <dl class="kv" style="margin-top:14px">
               <dt>Reputation</dt><dd>${Math.round(s.reputation)} / 100</dd>
               <dt>Monthly salaries</dt><dd>${money(s.staff.reduce((x, st) => x + st.salary, 0))}</dd>
-              <dt>Patients inside now</dt><dd>${s.patients.length}</dd>
+              <dt>Patients inside now</dt><dd>${patientCount(s)}</dd>
             </dl></div>
             <div><dl class="kv">
               <dt>Earned this month</dt><dd>${money(m.earned)}</dd>
@@ -596,7 +597,7 @@ export class Hud {
         });
       } else html += `<p class="desc" style="font-size:13px;font-weight:700">Three stars! This town is in excellent hands.</p>`;
     }
-    if (s.scenario === 'quackwell' && !s.sandbox) {
+    if (starterGoalsActive(s)) {
       const open = GOALS.map((g, i) => ({ g, i, done: !!s.hints[`goal:${i}`] })).filter((x) => !x.done);
       if (open.length && open.length > GOALS.length - 9) {
         html += `<h4>Getting started</h4><ul>`;
@@ -631,6 +632,7 @@ export class Hud {
 
   private checkGoals() {
     const s = this.world.state;
+    if (!starterGoalsActive(s)) { this.renderGoals(); return; }
     GOALS.forEach((g, i) => {
       if (s.hints[`goal:${i}`]) return;
       if (g.done(this.world)) {
@@ -679,7 +681,7 @@ export class Hud {
     this.el.sky.textContent = isNight(s.t) ? '🌙' : tod < 0.3 || tod > 0.78 ? '🌅' : '☀️';
     this.el.day.textContent = `Day ${cal.day}`;
     this.el.month.textContent = `${MONTH_NAMES[cal.month]} Y${cal.year}, ${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-    this.el.pats.textContent = String(s.patients.length);
+    this.el.pats.textContent = String(patientCount(s));
     this.el.cured.textContent = String(s.stats.cured);
     const sp = this.d.getSpeed();
     this.el.speed.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.speed) === sp)));

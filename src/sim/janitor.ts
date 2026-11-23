@@ -24,6 +24,7 @@ import { int, rand, range } from './rng';
 import type { Item, Litter, Room, Staff, WorldState } from './state';
 import type { World } from './world';
 import { boosts } from './research';
+import { tryBreak } from './staff';
 
 const MAX_LITTER = 200;
 
@@ -142,6 +143,7 @@ export function updateJanitor(w: World, st: Staff, dt: number) {
   const s = w.state;
   switch (st.state) {
     case 'idle':
+      if (tryBreak(w, st)) break;
       if (pickJob(w, st)) break;
       if (!moving(st)) {
         if (rand(s.rng) < dt * 0.3) {
@@ -166,7 +168,7 @@ export function updateJanitor(w: World, st: Staff, dt: number) {
     case 'doingJob': {
       const job = st.job;
       if (!job) { st.state = 'idle'; st.pose = 'stand'; break; }
-      job.timer -= dt * (0.8 + st.skill * 0.1);
+      job.timer -= dt * (0.8 + st.skill * 0.1) * (st.energy < 20 ? 1 / 1.5 : 1);
       if (job.timer > 0) break;
       if (job.kind === 'litter') {
         const l = s.litter.find((x) => x.id === job.id);

@@ -94,6 +94,28 @@ describe('litter', () => {
   });
 });
 
+describe('janitor energy', () => {
+  it('drains while a janitor is working', () => {
+    const w = world();
+    for (let i = 0; i < 12; i++) dropLitter(w, 12.5 + i * 2, 12.5 + (i % 3) * 4, 'wrapper');
+    const j = hire(w, 'janitor');
+    run(w, 40);
+    expect(j.energy).toBeLessThan(100);
+  });
+
+  it('a tired janitor rests in the Staff Room, then gets back to sweeping', () => {
+    const w = world();
+    expect(w.cmd({ type: 'buildRoom', room: 'staffRoom', rect: { x: 24, z: 8, w: 3, h: 3 }, door: { x: 25, z: 10, dir: 'S' } }).ok).toBe(true);
+    const j = hire(w, 'janitor');
+    j.energy = 10;
+    dropLitter(w, 15.5, 22.5, 'can');
+    expect(run(w, 60, () => j.state === 'onBreak')).toBe(true);
+    expect(w.state.litter.length).toBe(1);
+    expect(run(w, 120, () => w.state.litter.length === 0)).toBe(true);
+    expect(j.energy).toBeGreaterThan(80);
+  });
+});
+
 describe('machine wear', () => {
   it('a worn machine breaks after a service, the patient still finishes, and the room stops admitting (Review Focus 3)', () => {
     const { w, scanId, scanner } = scanSetup();

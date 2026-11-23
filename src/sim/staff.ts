@@ -271,8 +271,19 @@ function findPost(w: World, st: Staff): { room: Room | null; item: Item; idx: nu
   return best;
 }
 
+/** Head for a free Staff Room seat. Returns false if there is none. */
+export function tryBreak(w: World, st: Staff): boolean {
+  if (st.energy >= BREAK_AT) return false;
+  const rest = freeSpot(w, 'rest', 'staffRoom', st);
+  if (rest && stepAway(w, st, rest, 'toBreak')) return true;
+  if (st.energy < 10) w.hint('noStaffRoom', 'Your staff are exhausted and slowing down. Build a Staff Room!', 'warn', 60);
+  return false;
+}
+
 function needs(w: World, st: Staff, dt: number) {
   if (st.state === 'atPost') st.energy = Math.max(0, st.energy - dt * (st.busy ? ENERGY_BUSY : ENERGY_POST));
+  else if (st.state === 'toJob') st.energy = Math.max(0, st.energy - dt * ENERGY_POST);
+  else if (st.state === 'doingJob') st.energy = Math.max(0, st.energy - dt * ENERGY_BUSY);
   else if (st.state === 'onBreak') {
     st.energy = Math.min(100, st.energy + dt * RECOVER);
     st.mood = Math.min(100, st.mood + dt * 0.5);
@@ -323,11 +334,7 @@ export function updateStaff(w: World, dt: number) {
         break;
       }
       case 'atPost': {
-        if (st.energy < BREAK_AT && !st.busy) {
-          const rest = freeSpot(w, 'rest', 'staffRoom', st);
-          if (rest) stepAway(w, st, rest, 'toBreak');
-          else if (st.energy < 10) w.hint('noStaffRoom', 'Your staff are exhausted and slowing down. Build a Staff Room!', 'warn', 60);
-        }
+        if (!st.busy) tryBreak(w, st);
         break;
       }
       case 'toBreak':

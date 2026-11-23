@@ -18,7 +18,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { World } from '../src/sim/world';
-import { SCENARIOS, createScenarioState, evaluateStars, goalValue, isScenarioUnlocked, parseProgress, recordStars, scenarioById } from '../src/sim/scenarios';
+import { SCENARIOS, createScenarioState, evaluateStars, goalValue, isScenarioUnlocked, parseProgress, recordStars, scenarioById, starterGoalsActive } from '../src/sim/scenarios';
+import { patientCount } from '../src/sim/state';
 import { findPath } from '../src/sim/path';
 import { validateRoom } from '../src/sim/build';
 import { deserialize, serialize } from '../src/sim/save';
@@ -93,6 +94,22 @@ describe('goals', () => {
     s.research.done = ['arcade', 'fizzDeluxe'];
     const g = scenarioById('voltwick').stars[0].find((x) => x.kind === 'research')!;
     expect(goalValue(s, g)).toBe(2);
+  });
+});
+
+describe('hud helpers', () => {
+  it('shows the getting-started checklist only in Quackwell, outside sandbox', () => {
+    expect(starterGoalsActive(createScenarioState('quackwell', 1))).toBe(true);
+    expect(starterGoalsActive(createScenarioState('frostmere', 1))).toBe(false);
+    expect(starterGoalsActive(createScenarioState('quackwell', 1, true))).toBe(false);
+  });
+
+  it('does not count the health inspector as a patient', () => {
+    const w = new World(createScenarioState('quackwell', 1), { autoSpawn: false });
+    w.spawnPatient('chromaticFlu');
+    w.spawnPatient('jellylegs', { vip: true });
+    expect(w.state.patients.length).toBe(2);
+    expect(patientCount(w.state)).toBe(1);
   });
 });
 
