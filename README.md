@@ -89,8 +89,6 @@ These URL flags are handy with them:
 | `&q=ultra`, `high`, `medium` or `low` | Graphics preset |
 | `&ui=0` | Hide the interface |
 
-The design document is in `docs/superpowers/specs/`.
-
 ## Roadmap
 
 - **Milestone 2:** staff training, research, staff needs and janitors, emergencies and epidemics, saving and loading.
