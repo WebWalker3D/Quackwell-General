@@ -17,8 +17,9 @@
  * code written by Blaine Bouvier are Copyright (c) 2026. All Rights Reserved.
  */
 import { DIRS, DIR_VEC, Grid, LOT_H, LOT_W, applyShell, type Dir } from './grid';
-import { ITEMS, ROOMS, roomCost, type ItemType, type Pose, type RoomType } from './catalog';
+import { ITEMS, ROOMS, roomCost, type ItemType, type Pose, type RoomType, type SpotDef } from './catalog';
 import type { Ctx, DoorSpec, Item, Rect, Room, WorldState } from './state';
+import { isItemUnlocked, isRoomUnlocked } from './unlocks';
 
 // ---------- item geometry ----------
 
@@ -60,7 +61,7 @@ export function itemFootprint(type: ItemType, x: number, z: number, rot: number)
 
 export interface WorldSpot {
   idx: number;
-  kind: 'staff' | 'patient' | 'seat' | 'use';
+  kind: SpotDef['kind'];
   /** where the character ends up */
   x: number;
   z: number;
@@ -194,6 +195,7 @@ export function validateRoom(c: Ctx, type: RoomType, rect: Rect, door: DoorSpec)
   const cost = roomCost(type, rect.w, rect.h);
   const fail = (reason: string): BuildCheck => ({ ok: false, reason, cost });
   const g = c.grid;
+  if (!isRoomUnlocked(c.state, type)) return fail('not researched yet');
   if (!((rect.w >= def.minW && rect.h >= def.minH) || (rect.w >= def.minH && rect.h >= def.minW))) return fail('too small');
   if (rect.w > MAX_ROOM || rect.h > MAX_ROOM) return fail('too big');
   const occupied = footprintsOf(c.state);
@@ -351,6 +353,7 @@ export function validateItem(c: Ctx, type: ItemType, x: number, z: number, rot: 
   const cost = def.cost;
   let roomId = -1;
   const fail = (reason: string) => ({ ok: false, reason, cost, roomId });
+  if (!isItemUnlocked(c.state, type)) return fail('not researched yet');
   const cells = itemFootprint(type, x, z, rot);
   if (cells.some((cl) => !g.inBuilding(cl.x, cl.z))) return fail('must be inside the hospital');
   const rooms = new Set(cells.map((cl) => g.room(cl.x, cl.z)));

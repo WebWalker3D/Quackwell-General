@@ -19,12 +19,15 @@
 import type { Dir } from './grid';
 
 export type Role = 'doctor' | 'nurse' | 'assistant' | 'janitor';
-export type RoomType = 'gp' | 'pharmacy' | 'scan' | 'ward' | 'ballast' | 'grounding' | 'sauna';
+export type RoomType = 'gp' | 'pharmacy' | 'scan' | 'ward' | 'ballast' | 'grounding' | 'sauna' | 'staffRoom' | 'training' | 'research' | 'psych';
 export type ItemType =
   | 'reception' | 'bench' | 'vending' | 'cooler' | 'plant' | 'radiator' | 'bin' | 'lamp' | 'cabinet'
   | 'gpDesk' | 'pharmacyCounter' | 'scanner' | 'controlPanel' | 'bed' | 'nurseStation'
-  | 'ballastBooth' | 'teslaCoil' | 'groundPad' | 'saunaStove' | 'saunaBench';
-export type IllnessType = 'heliumLungs' | 'chromaticFlu' | 'staticCling' | 'jellylegs' | 'glowbelly' | 'frostbiteFever';
+  | 'ballastBooth' | 'teslaCoil' | 'groundPad' | 'saunaStove' | 'saunaBench'
+  | 'sofa' | 'coffeeMachine' | 'lectern' | 'studyDesk' | 'researchBench' | 'psychCouch' | 'armchair' | 'arcade' | 'duckStatue';
+export type IllnessType =
+  | 'heliumLungs' | 'chromaticFlu' | 'staticCling' | 'jellylegs' | 'glowbelly' | 'frostbiteFever'
+  | 'bubbleTrouble' | 'echoItis' | 'backwardsWalking' | 'ghosting';
 export type FloorKind = 'corridor' | 'wood' | 'mint' | 'white' | 'lino' | 'rubber' | 'plank' | 'carpet';
 export type Pose = 'stand' | 'sit' | 'lie' | 'work';
 
@@ -34,7 +37,7 @@ export type Pose = 'stand' | 'sit' | 'lie' | 'work';
  * character walks to before hopping onto `at` (used when `at` sits on a solid cell).
  */
 export interface SpotDef {
-  kind: 'staff' | 'patient' | 'seat' | 'use';
+  kind: 'staff' | 'patient' | 'seat' | 'use' | 'rest' | 'study';
   at: { x: number; z: number };
   approach?: { x: number; z: number };
   face: Dir;
@@ -58,6 +61,10 @@ export interface ItemDef {
   desc: string;
   /** shown in the corridor item shop */
   buyable: boolean;
+  /** wears out with use and needs a janitor */
+  machine?: boolean;
+  /** research project that unlocks it */
+  unlock?: string;
 }
 
 export const ITEMS: Record<ItemType, ItemDef> = {
@@ -124,7 +131,7 @@ export const ITEMS: Record<ItemType, ItemDef> = {
     desc: 'Potions, pills and suspiciously glowing tonics.',
   },
   scanner: {
-    name: 'Omni-Scanner 3000', w: 3, d: 2, cells: ['###', '...'], cost: 7000, where: 'room', wall: true, decor: 0, buyable: false,
+    machine: true, name: 'Omni-Scanner 3000', w: 3, d: 2, cells: ['###', '...'], cost: 7000, where: 'room', wall: true, decor: 0, buyable: false,
     spots: [{ kind: 'patient', at: { x: 1.5, z: 0.5 }, approach: { x: 1.5, z: 1.5 }, face: 'E', pose: 'lie' }],
     desc: 'Sees through everything. Including your excuses.',
   },
@@ -144,12 +151,12 @@ export const ITEMS: Record<ItemType, ItemDef> = {
     desc: 'Charts, clipboards and a very important mug.',
   },
   ballastBooth: {
-    name: 'Ballast Booth', w: 2, d: 2, cells: ['##', '##'], cost: 6500, where: 'room', wall: true, decor: 0, buyable: false,
+    machine: true, name: 'Ballast Booth', w: 2, d: 2, cells: ['##', '##'], cost: 6500, where: 'room', wall: true, decor: 0, buyable: false,
     spots: [{ kind: 'patient', at: { x: 1, z: 1 }, approach: { x: 0.5, z: 2.5 }, face: 'S', pose: 'stand' }],
     desc: 'Pumps the floaty right out of you.',
   },
   teslaCoil: {
-    name: 'Grounding Coil', w: 2, d: 2, cells: ['##', '##'], cost: 7500, where: 'room', wall: true, decor: 0, buyable: false, spots: [],
+    machine: true, name: 'Grounding Coil', w: 2, d: 2, cells: ['##', '##'], cost: 7500, where: 'room', wall: true, decor: 0, buyable: false, spots: [],
     desc: 'Drinks static. Spits lightning.',
   },
   groundPad: {
@@ -158,9 +165,54 @@ export const ITEMS: Record<ItemType, ItemDef> = {
     desc: 'Stand here. Do not touch anything.',
   },
   saunaStove: {
-    name: 'Sauna Stove', w: 1, d: 1, cells: ['#'], cost: 2500, where: 'room', wall: true, decor: 0, warmth: 6, buyable: false,
+    machine: true, name: 'Sauna Stove', w: 1, d: 1, cells: ['#'], cost: 2500, where: 'room', wall: true, decor: 0, warmth: 6, buyable: false,
     spots: [{ kind: 'staff', at: { x: 0.5, z: 1.5 }, face: 'N', pose: 'work' }],
     desc: 'Hot rocks. Hotter steam.',
+  },
+  sofa: {
+    name: 'Squishy Sofa', w: 2, d: 1, cells: ['##'], cost: 600, where: 'room', wall: true, decor: 0.5, buyable: false,
+    spots: [
+      { kind: 'rest', at: { x: 0.5, z: 0.45 }, approach: { x: 0.5, z: 1.5 }, face: 'S', pose: 'sit' },
+      { kind: 'rest', at: { x: 1.5, z: 0.45 }, approach: { x: 1.5, z: 1.5 }, face: 'S', pose: 'sit' },
+    ],
+    desc: 'Sink in. Recharge.',
+  },
+  coffeeMachine: {
+    name: 'Bean Cannon', w: 1, d: 1, cells: ['#'], cost: 700, where: 'room', wall: true, decor: 0.5, buyable: false,
+    spots: [{ kind: 'rest', at: { x: 0.5, z: 1.5 }, face: 'N', pose: 'stand' }],
+    desc: 'Industrial-strength coffee for heroic shifts.',
+  },
+  lectern: {
+    name: 'Lectern', w: 1, d: 1, cells: ['#'], cost: 500, where: 'room', wall: true, decor: 0.3, buyable: false, spots: [],
+    desc: 'For important speeches about hand washing.',
+  },
+  studyDesk: {
+    name: 'Study Desk', w: 1, d: 2, cells: ['#', '.'], cost: 450, where: 'room', wall: true, decor: 0, buyable: false,
+    spots: [{ kind: 'study', at: { x: 0.5, z: 1.5 }, face: 'N', pose: 'sit' }],
+    desc: 'Textbooks, highlighters, ambition.',
+  },
+  researchBench: {
+    machine: true, name: 'Research Bench', w: 2, d: 2, cells: ['##', '..'], cost: 4000, where: 'room', wall: true, decor: 0, buyable: false,
+    spots: [{ kind: 'staff', at: { x: 0.5, z: 1.5 }, face: 'N', pose: 'work' }],
+    desc: 'Bubbling flasks and a very confident microscope.',
+  },
+  psychCouch: {
+    name: 'Therapy Couch', w: 2, d: 1, cells: ['##'], cost: 1500, where: 'room', wall: true, decor: 0, buyable: false,
+    spots: [{ kind: 'patient', at: { x: 1, z: 0.5 }, approach: { x: 0.5, z: 1.5 }, face: 'E', pose: 'lie' }],
+    desc: 'Tell it about your mother.',
+  },
+  armchair: {
+    name: 'Thinking Chair', w: 1, d: 1, cells: ['#'], cost: 800, where: 'room', wall: false, decor: 0, buyable: false,
+    spots: [{ kind: 'staff', at: { x: 0.5, z: 0.5 }, approach: { x: 0.5, z: 1.5 }, face: 'S', pose: 'sit' }],
+    desc: 'Hmm. Interesting. Go on.',
+  },
+  arcade: {
+    name: 'Arcade Cabinet', w: 1, d: 1, cells: ['#'], cost: 1500, where: 'corridor', wall: true, decor: 3.5, buyable: true, unlock: 'arcade', spots: [],
+    desc: 'Blinking lights keep waiting patients calm for ages.',
+  },
+  duckStatue: {
+    name: 'Golden Duck Statue', w: 2, d: 2, cells: ['##', '##'], cost: 5000, where: 'any', wall: false, decor: 9, buyable: true, unlock: 'duckStatue', spots: [],
+    desc: 'The hospital mascot, in solid(ish) gold. Huge morale boost.',
   },
   saunaBench: {
     name: 'Sauna Bench', w: 2, d: 1, cells: ['##'], cost: 800, where: 'room', wall: true, decor: 0, buyable: false,
@@ -169,13 +221,13 @@ export const ITEMS: Record<ItemType, ItemDef> = {
   },
 };
 
-export type Service = 'gp' | 'diagnose' | 'treat';
+export type Service = 'gp' | 'diagnose' | 'treat' | 'research' | 'none';
 
 export interface RoomDef {
   name: string;
   minW: number;
   minH: number;
-  staff: Role;
+  staff: Role | null;
   required: ItemType[];
   floor: FloorKind;
   wall: string;
@@ -189,6 +241,8 @@ export interface RoomDef {
   fee: number;
   desc: string;
   icon: string;
+  /** research project that unlocks it */
+  unlock?: string;
 }
 
 export const ROOMS: Record<RoomType, RoomDef> = {
@@ -227,6 +281,26 @@ export const ROOMS: Record<RoomType, RoomDef> = {
     baseCost: 5500, tileCost: 150, service: 'treat', duration: 15, fee: 0, icon: '♨️',
     desc: 'Steams Frostbite Fever right out of the bones.',
   },
+  staffRoom: {
+    name: 'Staff Room', minW: 3, minH: 3, staff: null, required: ['sofa', 'coffeeMachine'], floor: 'carpet', wall: '#ffe1c7', accent: '#ff8a5c',
+    baseCost: 3000, tileCost: 120, service: 'none', duration: 0, fee: 0, icon: '☕',
+    desc: 'Tired staff recharge here. Without one they slow down and eventually quit.',
+  },
+  training: {
+    name: 'Training Room', minW: 3, minH: 4, staff: null, required: ['lectern', 'studyDesk', 'studyDesk'], floor: 'wood', wall: '#e3f0ff', accent: '#4f7cff',
+    baseCost: 5000, tileCost: 150, service: 'none', duration: 0, fee: 0, icon: '🎓',
+    desc: 'Send staff here from their info card to earn another skill star.',
+  },
+  research: {
+    name: 'Research Lab', minW: 4, minH: 3, staff: 'doctor', required: ['researchBench'], floor: 'white', wall: '#e6fff4', accent: '#20c997',
+    baseCost: 7000, tileCost: 200, service: 'research', duration: 0, fee: 0, icon: '🧪',
+    desc: 'A doctor here works through research projects: new rooms, items and upgrades.',
+  },
+  psych: {
+    name: 'Psychiatry', minW: 4, minH: 4, staff: 'doctor', required: ['psychCouch', 'armchair'], floor: 'carpet', wall: '#ffe3ef', accent: '#e05297',
+    baseCost: 7000, tileCost: 180, service: 'treat', duration: 16, fee: 0, icon: '🛋️', unlock: 'psychiatry',
+    desc: 'Talks Echo-itis and Backwards Walking out of people.',
+  },
 };
 
 export interface IllnessDef {
@@ -247,6 +321,10 @@ export const ILLNESSES: Record<IllnessType, IllnessDef> = {
   staticCling: { name: 'Static Cling', room: 'grounding', fee: 2400, difficulty: 0.4, weight: 3, month: 3, desc: 'Hair on end, sparks on contact, socks stuck to everything.' },
   jellylegs: { name: 'Jellylegs', room: 'pharmacy', fee: 1000, difficulty: 0.15, weight: 4, month: 0, desc: 'Legs wobble like a dessert left in the sun.' },
   glowbelly: { name: 'Glowbelly', room: 'ward', fee: 1700, difficulty: 0.3, weight: 3, month: 2, desc: 'Swallowed a firefly. Possibly several.' },
+  bubbleTrouble: { name: 'Bubble Trouble', room: 'pharmacy', fee: 1150, difficulty: 0.2, weight: 3, month: 2, desc: 'Every hiccup comes out as a soap bubble.' },
+  echoItis: { name: 'Echo-itis', room: 'psych', fee: 1900, difficulty: 0.35, weight: 3, month: 4, desc: 'Everything they say, they say again. And again.' },
+  backwardsWalking: { name: 'Backwards Walking', room: 'psych', fee: 1700, difficulty: 0.3, weight: 2, month: 5, desc: 'Can only walk backwards. Extremely confident about it.' },
+  ghosting: { name: 'Ghosting', room: 'ward', fee: 1600, difficulty: 0.45, weight: 2, month: 6, desc: 'Keeps fading out of the room mid-sentence.' },
   frostbiteFever: { name: 'Frostbite Fever', room: 'sauna', fee: 1800, difficulty: 0.25, weight: 3, month: 1, desc: 'Followed everywhere by a tiny personal snowstorm.' },
 };
 

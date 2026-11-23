@@ -28,6 +28,7 @@ import { randomName } from './names';
 import { chance, int, rand, range } from './rng';
 import type { Item, Patient, Room } from './state';
 import { releaseSpot, staffed } from './staff';
+import { isRoomUnlocked } from './unlocks';
 import type { Pt } from './path';
 import type { World } from './world';
 
@@ -174,7 +175,7 @@ function seekRoom(w: World, p: Patient) {
   stop(p);
   if (!rooms.length) {
     p.target = -1;
-    w.hint(`need:${need}`, `Patients need a ${ROOMS[need].name}! ${ROOMS[need].icon}`);
+    needHint(w, need);
     return;
   }
   let best = rooms[0], bestS = Infinity;
@@ -185,6 +186,12 @@ function seekRoom(w: World, p: Patient) {
   }
   best.queue.push(p.id);
   p.target = best.id;
+}
+
+function needHint(w: World, need: RoomType) {
+  const def = ROOMS[need];
+  if (!isRoomUnlocked(w.state, need)) w.hint(`need:${need}`, `Patients need ${def.name}. Research it in a Research Lab first. ${def.icon}`);
+  else w.hint(`need:${need}`, `Patients need a ${def.name}! ${def.icon}`);
 }
 
 function refPoint(w: World, p: Patient): Pt {
@@ -267,11 +274,13 @@ export function updateRooms(w: World, dt: number) {
     if (n / count >= 6) w.hint(`queue:${type}`, `The ${ROOMS[type as RoomType].name} queue is getting long. Build another one?`, 'warn', 90);
   }
   for (const room of w.state.rooms) {
+    const svc = ROOMS[room.type].service;
+    if (svc === 'none' || svc === 'research') continue;
     const st = staffed(w, room);
     if (st) st.busy = room.occupants.some((id) => w.patient(id)?.state === 'inRoom');
     if (!st) {
-      if (room.queue.length) {
-        const role = ROOMS[room.type].staff;
+      const role = ROOMS[room.type].staff;
+      if (room.queue.length && role) {
         w.hint(`staff:${room.type}`, `${ROOMS[room.type].name} needs a ${ROLES[role].name}. Hire one in Staff.`);
       }
       continue;
@@ -455,7 +464,7 @@ export function updatePatients(w: World, dt: number) {
       case 'waiting': {
         if (p.target >= 0 && !w.room(p.target)) { p.target = -1; p.state = 'seekRoom'; break; }
         if (p.target === -1 && p.need && s.rooms.some((r) => r.type === p.need)) { p.state = 'seekRoom'; break; }
-        if (p.target === -1 && p.need) w.hint(`need:${p.need}`, `Patients need a ${ROOMS[p.need].name}! ${ROOMS[p.need].icon}`);
+        if (p.target === -1 && p.need) needHint(w, p.need);
         if (!p.spot && !p.dest) settleWait(w, p);
         if (!p.spot && !moving(p) && w.grid.room(Math.floor(p.x), Math.floor(p.z)) !== -1) stop(p);
         const arrived = step(w.grid, p, dt);

@@ -25,8 +25,8 @@ describe('demo world', () => {
     const w = createDemoWorld();
     const types = new Set(w.state.rooms.map((r) => r.type));
     for (const t of Object.keys(ROOMS) as RoomType[]) expect(types.has(t)).toBe(true);
-    expect(w.state.rooms.every((r) => r.staffId !== -1)).toBe(true);
-    expect(w.state.staff.filter((s) => s.state === 'atPost').length).toBeGreaterThanOrEqual(w.state.rooms.length);
+    expect(w.state.rooms.filter((r) => ROOMS[r.type].staff).every((r) => r.staffId !== -1)).toBe(true);
+    expect(w.state.staff.filter((s) => s.state === 'atPost').length).toBeGreaterThanOrEqual(w.state.rooms.filter((r) => ROOMS[r.type].staff).length);
     expect(w.state.patients.length).toBeGreaterThanOrEqual(10);
   });
 });

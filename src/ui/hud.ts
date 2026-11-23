@@ -246,7 +246,7 @@ export class Hud {
           const cost = roomCost(k, def.minW, def.minH);
           html += `<button class="card" data-room="${k}" ${s.money < cost ? 'disabled' : ''}>
             <div class="icon" aria-hidden="true">${def.icon}</div><div class="name">${def.name}</div>
-            <div class="meta"><span class="tag cost">from ${money(cost)}</span><span class="tag">${def.minW}×${def.minH}+</span><span class="tag role">${ROLE_ICON[def.staff]} ${ROLES[def.staff].name}</span></div>
+            <div class="meta"><span class="tag cost">from ${money(cost)}</span><span class="tag">${def.minW}×${def.minH}+</span>${def.staff ? `<span class="tag role">${ROLE_ICON[def.staff]} ${ROLES[def.staff].name}</span>` : '<span class="tag">no staff</span>'}</div>
             <div class="desc">${def.desc}</div></button>`;
         }
         html += '</div>';
@@ -391,8 +391,12 @@ export class Hud {
       const def = ROOMS[r.type];
       const st = r.staffId !== -1 ? this.world.staffById(r.staffId) : undefined;
       html += `<div class="who"><div class="avatar" aria-hidden="true">${def.icon}</div><div><b>${def.name}</b><span>${r.rect.w}×${r.rect.h}</span></div></div>`;
-      html += `<dl class="kv"><dt>${ROLES[def.staff].name}</dt><dd>${st ? esc(st.name) : 'Nobody'}</dd><dt>Queue</dt><dd>${r.queue.length}</dd><dt>Inside</dt><dd>${r.occupants.length}</dd></dl>`;
-      html += `<div class="status">${st ? def.desc : `Hire a ${ROLES[def.staff].name} to open this room.`}</div>`;
+      if (def.staff) {
+        html += `<dl class="kv"><dt>${ROLES[def.staff].name}</dt><dd>${st ? esc(st.name) : 'Nobody'}</dd><dt>Queue</dt><dd>${r.queue.length}</dd><dt>Inside</dt><dd>${r.occupants.length}</dd></dl>`;
+        html += `<div class="status">${st ? def.desc : `Hire a ${ROLES[def.staff].name} to open this room.`}</div>`;
+      } else {
+        html += `<div class="status">${def.desc}</div>`;
+      }
       html += `<button class="btn quiet" data-act="sell" data-kind="room" data-id="${r.id}">Sell for ${money(r.cost / 2)}</button>`;
     } else {
       const it = this.world.item(sel.id);

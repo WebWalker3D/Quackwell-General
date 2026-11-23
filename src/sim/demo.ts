@@ -26,6 +26,7 @@ export function createDemoWorld(seed = 11, warmup = 45): World {
   const s = createState(seed);
   s.money = 2_000_000;
   s.t = 15;
+  s.research.done = ['psychiatry', 'arcade', 'duckStatue'];
   const w = new World(s);
   const cmds: Command[] = [
     { type: 'buildRoom', room: 'gp', rect: { x: 8, z: 6, w: 4, h: 4 }, door: { x: 10, z: 9, dir: 'S' } },
@@ -36,7 +37,10 @@ export function createDemoWorld(seed = 11, warmup = 45): World {
     { type: 'buildRoom', room: 'grounding', rect: { x: 31, z: 6, w: 5, h: 4 }, door: { x: 33, z: 9, dir: 'S' } },
     { type: 'buildRoom', room: 'pharmacy', rect: { x: 8, z: 13, w: 4, h: 4 }, door: { x: 11, z: 14, dir: 'E' } },
     { type: 'buildRoom', room: 'sauna', rect: { x: 8, z: 19, w: 4, h: 4 }, door: { x: 11, z: 20, dir: 'E' } },
-    { type: 'buildRoom', room: 'pharmacy', rect: { x: 32, z: 13, w: 4, h: 4 }, door: { x: 32, z: 14, dir: 'W' } },
+    { type: 'buildRoom', room: 'research', rect: { x: 32, z: 13, w: 4, h: 3 }, door: { x: 32, z: 14, dir: 'W' } },
+    { type: 'buildRoom', room: 'psych', rect: { x: 32, z: 17, w: 4, h: 4 }, door: { x: 32, z: 18, dir: 'W' } },
+    { type: 'buildRoom', room: 'staffRoom', rect: { x: 32, z: 22, w: 4, h: 4 }, door: { x: 32, z: 23, dir: 'W' } },
+    { type: 'buildRoom', room: 'training', rect: { x: 8, z: 23, w: 3, h: 4 }, door: { x: 10, z: 24, dir: 'E' } },
     { type: 'placeItem', item: 'reception', x: 20, z: 19, rot: 0 },
     { type: 'placeItem', item: 'bench', x: 14, z: 12, rot: 2 },
     { type: 'placeItem', item: 'bench', x: 18, z: 12, rot: 2 },
@@ -44,20 +48,21 @@ export function createDemoWorld(seed = 11, warmup = 45): World {
     { type: 'placeItem', item: 'bench', x: 29, z: 12, rot: 2 },
     { type: 'placeItem', item: 'bench', x: 14, z: 16, rot: 1 },
     { type: 'placeItem', item: 'bench', x: 29, z: 16, rot: 3 },
-    { type: 'placeItem', item: 'vending', x: 35, z: 20, rot: 1 },
-    { type: 'placeItem', item: 'vending', x: 8, z: 25, rot: 3 },
-    { type: 'placeItem', item: 'cooler', x: 35, z: 22, rot: 1 },
+    { type: 'placeItem', item: 'vending', x: 28, z: 26, rot: 2 },
+    { type: 'placeItem', item: 'cooler', x: 15, z: 26, rot: 2 },
+    { type: 'placeItem', item: 'arcade', x: 27, z: 26, rot: 2 },
+    { type: 'placeItem', item: 'duckStatue', x: 25, z: 15, rot: 0 },
     { type: 'placeItem', item: 'plant', x: 16, z: 12, rot: 0 },
     { type: 'placeItem', item: 'plant', x: 27, z: 12, rot: 0 },
     { type: 'placeItem', item: 'plant', x: 19, z: 26, rot: 0 },
     { type: 'placeItem', item: 'plant', x: 24, z: 26, rot: 0 },
     { type: 'placeItem', item: 'plant', x: 12, z: 26, rot: 0 },
-    { type: 'placeItem', item: 'plant', x: 31, z: 26, rot: 0 },
     { type: 'placeItem', item: 'lamp', x: 18, z: 19, rot: 0 },
     { type: 'placeItem', item: 'lamp', x: 24, z: 19, rot: 0 },
     { type: 'placeItem', item: 'radiator', x: 8, z: 11, rot: 3 },
     { type: 'placeItem', item: 'radiator', x: 35, z: 11, rot: 1 },
     { type: 'placeItem', item: 'bin', x: 17, z: 12, rot: 0 },
+    { type: 'placeItem', item: 'bin', x: 26, z: 26, rot: 0 },
     { type: 'placeItem', item: 'bench', x: 14, z: 23, rot: 1 },
     { type: 'placeItem', item: 'bench', x: 29, z: 23, rot: 3 },
   ];
@@ -66,7 +71,7 @@ export function createDemoWorld(seed = 11, warmup = 45): World {
     if (!r.ok) throw new Error(`demo: ${JSON.stringify(c)} failed: ${r.reason}`);
   }
   const hires: [Role, number][] = [
-    ['assistant', 1], ['doctor', 5], ['nurse', 4],
+    ['assistant', 1], ['doctor', 7], ['nurse', 3],
   ];
   for (const [role, n] of hires) {
     for (let i = 0; i < n; i++) {
@@ -76,8 +81,8 @@ export function createDemoWorld(seed = 11, warmup = 45): World {
   }
   // drop staff straight inside so the demo is busy immediately
   for (const st of w.state.staff) { st.x = 21.5 + (st.id % 3); st.z = 25.5; st.px = st.x; st.pz = st.z; }
-  const ills: IllnessType[] = ['heliumLungs', 'chromaticFlu', 'staticCling', 'jellylegs', 'glowbelly', 'frostbiteFever'];
-  for (let i = 0; i < 14; i++) {
+  const ills: IllnessType[] = ['heliumLungs', 'chromaticFlu', 'staticCling', 'jellylegs', 'glowbelly', 'frostbiteFever', 'bubbleTrouble', 'echoItis', 'backwardsWalking', 'ghosting'];
+  for (let i = 0; i < 16; i++) {
     const p = w.spawnPatient(ills[i % ills.length], { at: { x: 18.5 + (i % 7), z: 24.5 + Math.floor(i / 7) } });
     if (i % 2 === 0) { p.gpVisits = 1; p.certainty = 0.9; p.diagnosed = true; }
   }

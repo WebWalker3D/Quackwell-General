@@ -27,6 +27,8 @@ import { findPath } from '../src/sim/path';
 function ctx(money = 1_000_000): Ctx {
   const state = createState();
   state.money = money;
+  // geometry tests: research locks are covered in unlock.test.ts
+  state.sandbox = true;
   return { state, grid: rebuildGrid(state) };
 }
 

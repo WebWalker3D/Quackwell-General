@@ -745,14 +745,22 @@ function saunaBench(): Built {
   return { root: bake(g) };
 }
 
-const BUILDERS: Record<ItemType, () => Built> = {
+/** stand-in until a dedicated model exists */
+function placeholder(type: ItemType): Built {
+  const g = new THREE.Group();
+  g.add(rbox(0.8, 0.8, 0.8, 0.1, C.grey, 0, 0.4, 0));
+  g.userData.placeholder = type;
+  return { root: bake(g) };
+}
+
+const BUILDERS: Partial<Record<ItemType, () => Built>> = {
   reception, bench, vending, cooler, plant, radiator, bin, lamp, cabinet,
   gpDesk, pharmacyCounter, scanner, controlPanel, bed, nurseStation,
   ballastBooth, teslaCoil, groundPad, saunaStove, saunaBench,
 };
 
 export function buildItemMesh(type: ItemType): THREE.Group {
-  const b = BUILDERS[type]();
+  const b = BUILDERS[type]?.() ?? placeholder(type);
   b.root.userData.animate = b.animate;
   b.root.userData.emitters = b.emitters ?? [];
   b.root.userData.type = type;
