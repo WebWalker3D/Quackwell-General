@@ -76,6 +76,16 @@ describe('research', () => {
     expect(availableResearch(w.state).some((r) => r.id === 'miracleCures')).toBe(true);
   });
 
+  it('researchers earn experience and promotions like everyone else', () => {
+    const w = lab();
+    const doc = w.state.staff[0];
+    doc.skill = 2;
+    doc.xp = 29;
+    w.cmd({ type: 'research', id: 'duckStatue' });
+    expect(run(w, 200, () => doc.skill === 3)).toBe(true);
+    expect(doc.xp).toBeLessThan(30);
+  });
+
   it('boosts reflect finished projects', () => {
     const s = createState(1);
     expect(boosts(s)).toEqual({ diagnosis: 0, cure: 0, wear: 1, patience: 1, arrivals: 1, vending: 5 });

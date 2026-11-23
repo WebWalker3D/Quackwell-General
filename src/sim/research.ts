@@ -19,7 +19,7 @@
 import type { WorldState } from './state';
 import type { CommandResult } from './events';
 import type { World } from './world';
-import { staffed } from './staff';
+import { gainXp, staffed } from './staff';
 import { roomBroken, wearMachines } from './janitor';
 
 export interface ResearchDef { id: string; name: string; cost: number; desc: string; icon: string; requires?: string }
@@ -81,7 +81,7 @@ export function updateResearch(w: World, dt: number) {
     if (r.acc >= 30) {
       r.acc -= 30;
       wearMachines(w, room);
-      st.xp++;
+      gainXp(w, st);
     }
   }
   const cur = r.current ? byId.get(r.current) : undefined;
