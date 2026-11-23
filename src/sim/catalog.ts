@@ -176,37 +176,37 @@ export interface RoomDef {
 export const ROOMS: Record<RoomType, RoomDef> = {
   gp: {
     name: 'Consult Room', minW: 3, minH: 3, staff: 'doctor', required: ['gpDesk'], floor: 'wood', wall: '#f3dcb8', accent: '#e9a04b',
-    baseCost: 4000, tileCost: 150, service: 'gp', duration: 12, fee: 150, icon: '🩺',
+    baseCost: 4000, tileCost: 150, service: 'gp', duration: 9, fee: 250, icon: '🩺',
     desc: 'A doctor works out what is wrong. Every patient starts here.',
   },
   pharmacy: {
     name: 'Dispensary', minW: 3, minH: 3, staff: 'nurse', required: ['pharmacyCounter'], floor: 'mint', wall: '#c9f0e1', accent: '#2fb38a',
-    baseCost: 5000, tileCost: 150, service: 'treat', duration: 8, fee: 0, icon: '💊',
+    baseCost: 5000, tileCost: 150, service: 'treat', duration: 7, fee: 0, icon: '💊',
     desc: 'A nurse hands out cures for Chromatic Flu and Jellylegs.',
   },
   scan: {
     name: 'Scan Lab', minW: 4, minH: 4, staff: 'doctor', required: ['scanner', 'controlPanel'], floor: 'white', wall: '#d9e4ff', accent: '#4f7cff',
-    baseCost: 9000, tileCost: 200, service: 'diagnose', duration: 14, fee: 350, icon: '🔬',
+    baseCost: 9000, tileCost: 200, service: 'diagnose', duration: 11, fee: 500, icon: '🔬',
     desc: 'Big diagnosis boost for patients the Consult Room is unsure about.',
   },
   ward: {
     name: 'Ward', minW: 4, minH: 4, staff: 'nurse', required: ['bed', 'bed', 'nurseStation'], floor: 'lino', wall: '#d6ecff', accent: '#5aa9e6',
-    baseCost: 6000, tileCost: 150, service: 'treat', duration: 30, fee: 0, icon: '🛏️',
+    baseCost: 6000, tileCost: 150, service: 'treat', duration: 26, fee: 0, icon: '🛏️',
     desc: 'Bed rest under a nurse’s eye. Dims Glowbelly. More beds, more patients.',
   },
   ballast: {
     name: 'Ballast Booth', minW: 3, minH: 4, staff: 'doctor', required: ['ballastBooth', 'controlPanel'], floor: 'carpet', wall: '#ecd9ff', accent: '#9a5cf0',
-    baseCost: 8000, tileCost: 200, service: 'treat', duration: 14, fee: 0, icon: '🎈',
+    baseCost: 8000, tileCost: 200, service: 'treat', duration: 12, fee: 0, icon: '🎈',
     desc: 'Squeezes the helium out of Helium Lungs.',
   },
   grounding: {
     name: 'Grounding Room', minW: 4, minH: 4, staff: 'doctor', required: ['teslaCoil', 'groundPad', 'controlPanel'], floor: 'rubber', wall: '#fff1b8', accent: '#f2c230',
-    baseCost: 9000, tileCost: 200, service: 'treat', duration: 16, fee: 0, icon: '⚡',
+    baseCost: 9000, tileCost: 200, service: 'treat', duration: 13, fee: 0, icon: '⚡',
     desc: 'Discharges Static Cling with a very large, very loud coil.',
   },
   sauna: {
     name: 'Thaw Sauna', minW: 3, minH: 3, staff: 'nurse', required: ['saunaStove', 'saunaBench'], floor: 'plank', wall: '#f0c9a0', accent: '#e0703a',
-    baseCost: 5500, tileCost: 150, service: 'treat', duration: 18, fee: 0, icon: '♨️',
+    baseCost: 5500, tileCost: 150, service: 'treat', duration: 15, fee: 0, icon: '♨️',
     desc: 'Steams Frostbite Fever right out of the bones.',
   },
 };
@@ -224,12 +224,12 @@ export interface IllnessDef {
 }
 
 export const ILLNESSES: Record<IllnessType, IllnessDef> = {
-  heliumLungs: { name: 'Helium Lungs', room: 'ballast', fee: 1400, difficulty: 0.2, weight: 3, month: 1, desc: 'Floats a few inches off the floor and squeaks when talking.' },
-  chromaticFlu: { name: 'Chromatic Flu', room: 'pharmacy', fee: 700, difficulty: 0.1, weight: 5, month: 0, desc: 'Skin cycles through every colour of the rainbow.' },
-  staticCling: { name: 'Static Cling', room: 'grounding', fee: 1600, difficulty: 0.4, weight: 3, month: 3, desc: 'Hair on end, sparks on contact, socks stuck to everything.' },
-  jellylegs: { name: 'Jellylegs', room: 'pharmacy', fee: 650, difficulty: 0.15, weight: 4, month: 0, desc: 'Legs wobble like a dessert left in the sun.' },
-  glowbelly: { name: 'Glowbelly', room: 'ward', fee: 1100, difficulty: 0.3, weight: 3, month: 2, desc: 'Swallowed a firefly. Possibly several.' },
-  frostbiteFever: { name: 'Frostbite Fever', room: 'sauna', fee: 1200, difficulty: 0.25, weight: 3, month: 1, desc: 'Followed everywhere by a tiny personal snowstorm.' },
+  heliumLungs: { name: 'Helium Lungs', room: 'ballast', fee: 2000, difficulty: 0.2, weight: 3, month: 1, desc: 'Floats a few inches off the floor and squeaks when talking.' },
+  chromaticFlu: { name: 'Chromatic Flu', room: 'pharmacy', fee: 1100, difficulty: 0.1, weight: 5, month: 0, desc: 'Skin cycles through every colour of the rainbow.' },
+  staticCling: { name: 'Static Cling', room: 'grounding', fee: 2400, difficulty: 0.4, weight: 3, month: 3, desc: 'Hair on end, sparks on contact, socks stuck to everything.' },
+  jellylegs: { name: 'Jellylegs', room: 'pharmacy', fee: 1000, difficulty: 0.15, weight: 4, month: 0, desc: 'Legs wobble like a dessert left in the sun.' },
+  glowbelly: { name: 'Glowbelly', room: 'ward', fee: 1700, difficulty: 0.3, weight: 3, month: 2, desc: 'Swallowed a firefly. Possibly several.' },
+  frostbiteFever: { name: 'Frostbite Fever', room: 'sauna', fee: 1800, difficulty: 0.25, weight: 3, month: 1, desc: 'Followed everywhere by a tiny personal snowstorm.' },
 };
 
 export interface RoleDef {
@@ -241,14 +241,28 @@ export interface RoleDef {
 }
 
 export const ROLES: Record<Role, RoleDef> = {
-  doctor: { name: 'Doctor', plural: 'Doctors', baseSalary: 2600, perSkill: 500, color: '#ffffff' },
-  nurse: { name: 'Nurse', plural: 'Nurses', baseSalary: 1900, perSkill: 400, color: '#36c2b4' },
-  assistant: { name: 'Assistant', plural: 'Assistants', baseSalary: 1300, perSkill: 300, color: '#ffc845' },
-  janitor: { name: 'Janitor', plural: 'Janitors', baseSalary: 1100, perSkill: 200, color: '#6d8cff' },
+  doctor: { name: 'Doctor', plural: 'Doctors', baseSalary: 1800, perSkill: 400, color: '#ffffff' },
+  nurse: { name: 'Nurse', plural: 'Nurses', baseSalary: 1400, perSkill: 300, color: '#36c2b4' },
+  assistant: { name: 'Assistant', plural: 'Assistants', baseSalary: 1000, perSkill: 200, color: '#ffc845' },
+  janitor: { name: 'Janitor', plural: 'Janitors', baseSalary: 900, perSkill: 150, color: '#6d8cff' },
 };
 
 export const RECEPTION_DURATION = 5;
-export const DIAGNOSIS_THRESHOLD = 0.85;
+export const DIAGNOSIS_THRESHOLD = 0.8;
+
+/** Balance knobs (tuned with the scripted-player simulation in Task 12). */
+export const BALANCE = {
+  gpBase: 45, gpPerSkill: 8,
+  scanBase: 45, scanPerSkill: 6,
+  cureBase: 0.7, curePerSkill: 0.06, cureCap: 0.98,
+  certaintyWeight: 0.25,
+  repCured: 1.2, repFailed: -2, repLeft: -1,
+  /** fraction of the gap to 50 reputation closed each month */
+  repDrift: 0.12,
+  spawnMin: 4, spawnRange: 14,
+  nightSlowdown: 1.8,
+  patienceStand: 0.5, patienceSit: 0.3,
+};
 export const MAX_GP_VISITS = 3;
 
 export function roomCost(type: RoomType, w: number, h: number): number {

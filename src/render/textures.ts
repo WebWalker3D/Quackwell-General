@@ -335,7 +335,7 @@ export function tex(kind: TexKind): TexSet {
   seed = 1337 + kind.length * 101 + kind.charCodeAt(0);
   let t: TexSet;
   switch (kind) {
-    case 'corridor': t = tiles('#fbf6ec', '#cfeee3', '#b9b2a4', 4, 2, 0.12); break;
+    case 'corridor': t = tiles('#f6eee0', '#b9e4d8', '#a99f8e', 4, 2, 0.12); break;
     case 'mint': t = tiles('#d4f5e6', '#bfeed9', '#8ec7ae', 4, 2, 0.15); break;
     case 'white': t = tiles('#f7f9ff', '#e9eefb', '#b9c3d8', 2, 2, 0.08); break;
     case 'wood': t = wood('#c98a52', '#6b3e1c', 8, 2); break;
@@ -367,4 +367,19 @@ export function radialTex(): THREE.Texture {
   ctx.fillRect(0, 0, 128, 128);
   radial = new THREE.CanvasTexture(c);
   return radial;
+}
+
+/** Vertical alpha ramp (opaque at v=0) for baked contact-shadow strips. */
+let ramp: THREE.Texture | null = null;
+export function rampTex(): THREE.Texture {
+  if (ramp) return ramp;
+  const { c, ctx } = mkCanvas(8, 64);
+  const g = ctx.createLinearGradient(0, 0, 0, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 8, 64);
+  ramp = new THREE.CanvasTexture(c);
+  return ramp;
 }

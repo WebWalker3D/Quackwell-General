@@ -1,5 +1,5 @@
 import {
-  DIAGNOSIS_THRESHOLD, ILLNESSES, ITEMS, MAX_GP_VISITS, RECEPTION_DURATION, ROLES, ROOMS,
+  BALANCE, DIAGNOSIS_THRESHOLD, ILLNESSES, ITEMS, MAX_GP_VISITS, RECEPTION_DURATION, ROLES, ROOMS,
   type IllnessType, type RoomType,
 } from './catalog';
 import { itemSpots } from './build';
@@ -20,8 +20,8 @@ const LEFT: Record<Dir, Dir> = { N: 'W', W: 'S', S: 'E', E: 'N' };
 const RIGHT: Record<Dir, Dir> = { N: 'E', E: 'S', S: 'W', W: 'N' };
 
 const THIRST_RATE = 0.3;
-const PATIENCE_STAND = 0.6;
-const PATIENCE_SIT = 0.35;
+const PATIENCE_STAND = BALANCE.patienceStand;
+const PATIENCE_SIT = BALANCE.patienceSit;
 
 function pickIllness(w: World): IllnessType {
   const mi = calendar(w.state.t).monthIndex;
@@ -242,6 +242,12 @@ function patientSpots(w: World, room: Room) {
 
 /** Call waiting patients into rooms that have a free spot and a working staff member. */
 export function updateRooms(w: World, dt: number) {
+  const queued = new Map<string, number>();
+  for (const room of w.state.rooms) queued.set(room.type, (queued.get(room.type) ?? 0) + room.queue.length);
+  for (const [type, n] of queued) {
+    const count = w.state.rooms.filter((r) => r.type === type).length;
+    if (n / count >= 6) w.hint(`queue:${type}`, `The ${ROOMS[type as RoomType].name} queue is getting long. Build another one?`, 'warn', 90);
+  }
   for (const room of w.state.rooms) {
     const st = staffed(w, room);
     if (st) st.busy = room.occupants.some((id) => w.patient(id)?.state === 'inRoom');
@@ -278,7 +284,7 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
   room.occupants = room.occupants.filter((id) => id !== p.id);
   w.emit({ type: 'service', roomId: room.id, patientId: p.id, phase: 'end' });
   if (def.service === 'gp' || def.service === 'diagnose') {
-    let base = def.service === 'gp' ? 30 + 6 * skill : 40 + 5 * skill;
+    let base = def.service === 'gp' ? BALANCE.gpBase + BALANCE.gpPerSkill * skill : BALANCE.scanBase + BALANCE.scanPerSkill * skill;
     if (trait === 'Sharp Eye') base += 8;
     p.certainty = Math.min(1, p.certainty + (base / 100) * (1 - 0.35 * ill.difficulty));
     if (def.service === 'gp') p.gpVisits++;
@@ -294,7 +300,7 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
     p.state = 'seekRoom';
     return;
   }
-  const chanceOk = Math.min(0.97, 0.55 + 0.07 * skill + (trait === 'Steady Hands' ? 0.05 : 0)) * (0.6 + 0.4 * p.certainty);
+  const chanceOk = Math.min(BALANCE.cureCap, BALANCE.cureBase + BALANCE.curePerSkill * skill + (trait === 'Steady Hands' ? 0.05 : 0)) * (1 - BALANCE.certaintyWeight + BALANCE.certaintyWeight * p.certainty);
   const force = w.opts.forceTreatment;
   const success = force ? force === 'success' : rand(s.rng) < chanceOk;
   if (success) {
@@ -303,13 +309,13 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
     p.cured = true;
     s.stats.cured++;
     s.monthStats.cured++;
-    adjustRep(s, 0.8 * (2 - s.priceMult));
+    adjustRep(s, BALANCE.repCured * (2 - s.priceMult));
     w.emit({ type: 'cured', id: p.id, x: p.x, z: p.z, fee });
     p.leaveReason = 'cured';
   } else {
     s.stats.failed++;
     s.monthStats.failed++;
-    adjustRep(s, -3);
+    adjustRep(s, BALANCE.repFailed);
     w.emit({ type: 'failed', id: p.id, x: p.x, z: p.z });
     p.leaveReason = 'treatment failed';
   }
@@ -336,7 +342,7 @@ export function leave(w: World, p: Patient, reason: string) {
   if (reason === 'impatient') {
     s.stats.left++;
     s.monthStats.left++;
-    adjustRep(s, -1.5);
+    adjustRep(s, BALANCE.repLeft);
     w.emit({ type: 'left', id: p.id, reason });
     w.hint('leaving', 'Patients are storming out after waiting too long! 😤');
   }

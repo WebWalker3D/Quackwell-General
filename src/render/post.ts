@@ -31,7 +31,10 @@ export function buildPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, cam
     c.halfRes = p.ao === 'half';
     c.depthAwareUpsampling = true;
     c.gammaCorrection = false;
-    n8.setQualityMode(p.ao === 'full' ? 'High' : 'Medium');
+    n8.setQualityMode(new URLSearchParams(location.search).get('aoq') ?? (p.ao === 'full' ? 'High' : 'Medium'));
+    const dbg = new URLSearchParams(location.search);
+    if (dbg.has('aoit')) c.denoiseIterations = Number(dbg.get('aoit'));
+    if (dbg.has('aoup')) c.depthAwareUpsampling = dbg.get('aoup') === '1';
     composer.addPass(n8);
     ao = n8;
   }
@@ -46,8 +49,8 @@ export function buildPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, cam
     composer.addPass(new EffectPass(camera, tilt));
   }
   const tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
-  const sat = new HueSaturationEffect({ saturation: 0.12 });
-  const bc = new BrightnessContrastEffect({ brightness: 0.0, contrast: 0.06 });
+  const sat = new HueSaturationEffect({ saturation: 0.2 });
+  const bc = new BrightnessContrastEffect({ brightness: -0.01, contrast: 0.1 });
   const vig = new VignetteEffect({ darkness: 0.42, offset: 0.32 });
   const noise = new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: false });
   noise.blendMode.opacity.value = 0.05;

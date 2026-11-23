@@ -7,7 +7,7 @@ import { createState, emptyStats, type Item, type Mover, type Patient, type Room
 import type { Command, CommandResult, SimEvent } from './events';
 import { fireStaff, genCandidates, hireCandidate, releaseStaffFrom, updateStaff } from './staff';
 import { releasePatientsFrom, spawnPatient, updatePatients, updateRooms, type SpawnOpts } from './patients';
-import { ILLNESSES, type IllnessType } from './catalog';
+import { BALANCE, ILLNESSES, type IllnessType } from './catalog';
 import { stop } from './move';
 
 export interface WorldOptions {
@@ -86,6 +86,7 @@ export class World {
     s.money -= salaries;
     s.stats.spent += salaries;
     s.monthStats = emptyStats();
+    s.reputation += (50 - s.reputation) * BALANCE.repDrift;
     genCandidates(this);
     this.emit({ type: 'month', salaries, label: monthLabel(cal.monthIndex) });
     for (const [k, def] of Object.entries(ILLNESSES)) {
@@ -108,9 +109,10 @@ export class World {
     const cap = 18 + s.rooms.length * 5;
     if (s.patients.length < cap) spawnPatient(this);
     const repF = 1 - s.reputation / 100;
-    const base = 9 + 21 * repF;
-    const night = isNight(s.t) ? 2.2 : 1;
-    s.spawnTimer = base * night * Math.pow(s.priceMult, 1.2) * range(s.rng, 0.6, 1.4);
+    const base = BALANCE.spawnMin + BALANCE.spawnRange * repF;
+    const night = isNight(s.t) ? BALANCE.nightSlowdown : 1;
+    const ease = s.t < MONTH ? 1.5 : 1;
+    s.spawnTimer = base * night * ease * Math.pow(s.priceMult, 1.2) * range(s.rng, 0.6, 1.4);
   }
 
   cmd(c: Command): CommandResult {

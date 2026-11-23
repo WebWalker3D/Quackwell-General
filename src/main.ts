@@ -29,6 +29,8 @@ const overlay = document.createElement('div');
 overlay.id = 'overlay';
 document.body.appendChild(overlay);
 const view = new View(engine, world, overlay);
+if (params.has('grass')) view.exterior.setGrass(Number(params.get('grass')));
+if (params.has('shadow')) engine.sky.configureShadow(Number(params.get('shadow')));
 if (params.has('weather')) view.weatherOverride = params.get('weather') as 'rain';
 if (params.has('t')) view.todOverride = Number(params.get('t'));
 if (params.has('cam')) engine.rig.setView(Number(params.get('cam')));
@@ -90,6 +92,7 @@ requestAnimationFrame(frame);
 (window as any).__info = () => ({ fps: engine.fps.toFixed(1), q: engine.quality, scale: engine.renderScale, patients: world.state.patients.length, money: world.state.money });
 (window as any).__speed = setSpeed;
 (window as any).__sfx = sfx;
+(window as any).__engine = engine;
 (window as any).__world = world;
 (window as any).__screenOf = (x: number, z: number, y = 0) => {
   const v = new Vector3(x + 0.5, y, z + 0.5).project(engine.camera);

@@ -13,9 +13,9 @@ describe('calendar', () => {
     expect(calendar(MONTH)).toMatchObject({ day: 1, month: 1, monthIndex: 1 });
     expect(calendar(MONTH * 12)).toMatchObject({ month: 0, year: 2, monthIndex: 12 });
   });
-  it('pays doctors 2600 + 500 per skill star', () => {
-    expect(salaryFor('doctor', 3)).toBe(4100);
-    expect(salaryFor('nurse', 1)).toBe(2300);
-    expect(salaryFor('assistant', 2)).toBe(1900);
+  it('pays base salary plus a per-star raise', () => {
+    expect(salaryFor('doctor', 3)).toBe(3000);
+    expect(salaryFor('nurse', 1)).toBe(1700);
+    expect(salaryFor('assistant', 2)).toBe(1400);
   });
 });

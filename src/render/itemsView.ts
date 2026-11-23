@@ -3,6 +3,7 @@ import type { World } from '../sim/world';
 import type { Item } from '../sim/state';
 import { rotatedSize } from '../sim/build';
 import { buildItemMesh, updateSharedItemFx, type AnimState, type Animate, type Emitter } from './itemMeshes';
+import { radialTex } from './textures';
 
 const ROT_ANGLE = [0, -Math.PI / 2, Math.PI, Math.PI / 2];
 
@@ -30,12 +31,36 @@ export class ItemsView {
   onEmit: ((kind: Emitter['kind'], world: THREE.Vector3, rate: number, dt: number) => void) | null = null;
   onLanded: ((x: number, z: number) => void) | null = null;
   private tmp = new THREE.Vector3();
+  private blobs: THREE.InstancedMesh;
+  private blobVer = '';
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
+    this.blobs = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#1a1030', map: radialTex(), transparent: true, opacity: 0.5, depthWrite: false }), 600);
+    this.blobs.count = 0;
+    this.blobs.renderOrder = 1;
+    this.blobs.frustumCulled = false;
+    scene.add(this.blobs);
+  }
+
+  private syncBlobs(world: World) {
+    const sig = world.state.items.map((i) => i.id).join(',');
+    if (sig === this.blobVer) return;
+    this.blobVer = sig;
+    const m = new THREE.Matrix4();
+    let n = 0;
+    for (const it of world.state.items) {
+      if (n >= 600) break;
+      const sz = rotatedSize(it.type, it.rot);
+      m.compose(new THREE.Vector3(it.x + sz.w / 2, 0.008, it.z + sz.d / 2), new THREE.Quaternion(), new THREE.Vector3(sz.w * 1.35, 1, sz.d * 1.35));
+      this.blobs.setMatrixAt(n++, m);
+    }
+    this.blobs.count = n;
+    this.blobs.instanceMatrix.needsUpdate = true;
   }
 
   sync(world: World, animateNew: boolean) {
+    this.syncBlobs(world);
     const seen = new Set<number>();
     for (const it of world.state.items) {
       seen.add(it.id);

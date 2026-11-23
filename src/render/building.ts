@@ -4,7 +4,7 @@ import type { Grid, WallEdge } from '../sim/grid';
 import { ROOMS, type FloorKind } from '../sim/catalog';
 import type { World } from '../sim/world';
 import { floorMat, glass, matte, plastic, texScale, metal } from './materials';
-import { radialTex, tex } from './textures';
+import { radialTex, rampTex, tex } from './textures';
 import { fx, wallShading, worldMapped } from './shaderfx';
 import type { Preset } from './engine';
 
@@ -105,6 +105,7 @@ export class BuildingView {
   private mats: THREE.InstancedMesh;
   private pools: THREE.InstancedMesh;
   private poolMat: THREE.MeshBasicMaterial;
+  private contact: THREE.InstancedMesh;
   private edges = new Map<string, EdgeRec>();
   private postList: { x: number; z: number; edges: EdgeRec[] }[] = [];
   private doors: DoorRec[] = [];
@@ -152,7 +153,13 @@ export class BuildingView {
     this.pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.poolMat, 300);
     this.pools.renderOrder = 2;
     this.pools.frustumCulled = false;
-    this.group.add(this.wallMesh, this.brickMesh, this.posts, this.glassMesh, this.mullions, this.shafts, this.mats, this.pools);
+    // baked contact shading along wall bases: cheap stand-in for screen-space AO
+    const strip = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5);
+    this.contact = new THREE.InstancedMesh(strip, new THREE.MeshBasicMaterial({ color: '#1a1030', map: rampTex(), transparent: true, opacity: preset.ao === 'off' ? 0.42 : 0.22, depthWrite: false }), 4000);
+    this.contact.count = 0;
+    this.contact.renderOrder = 1;
+    this.contact.frustumCulled = false;
+    this.group.add(this.wallMesh, this.brickMesh, this.posts, this.glassMesh, this.mullions, this.shafts, this.mats, this.pools, this.contact);
   }
 
   setQuadrant(q: number) {
@@ -295,6 +302,24 @@ export class BuildingView {
       }
       this.edges.set(key, e);
     }
+    let nc = 0;
+    const width = 0.5;
+    for (const e of this.edges.values()) {
+      if (e.wall.door) continue;
+      for (const side of ['a', 'b'] as const) {
+        const sp = side === 'a' ? e.a : e.b;
+        // strip runs along the wall and extends away from it into `side`
+        let yaw: number;
+        let x: number, z: number;
+        if (e.axis === 'h') { x = e.x + 0.5; z = e.z + (side === 'a' ? -T : T); yaw = side === 'a' ? Math.PI : 0; }
+        else { x = e.x + (side === 'a' ? -T : T); z = e.z + 0.5; yaw = side === 'a' ? -Math.PI / 2 : Math.PI / 2; }
+        tmpQ.setFromAxisAngle(Y_AXIS, yaw);
+        tmpM.compose(tmpP.set(x, sp.kind === 'out' ? 0.005 : 0.006, z), tmpQ, tmpS.set(1.02, 1, sp.kind === 'out' ? width * 1.3 : width));
+        if (nc < 4000) this.contact.setMatrixAt(nc++, tmpM);
+      }
+    }
+    this.contact.count = nc;
+    this.contact.instanceMatrix.needsUpdate = true;
     this.wallMesh.count = nw;
     this.brickMesh.count = nb;
     this.glassMesh.count = ng;
@@ -506,6 +531,6 @@ export class BuildingView {
     const elev = Math.max(0, sunDir.y);
     this.shaftMat.uniforms.uStrength.value = daylight * (0.12 + 0.5 * (1 - elev));
     (this.shaftMat.uniforms.uLight.value as THREE.Vector3).copy(sunDir).multiplyScalar(-4.5);
-    this.poolMat.opacity = night * 0.3;
+    this.poolMat.opacity = night * 0.5;
   }
 }

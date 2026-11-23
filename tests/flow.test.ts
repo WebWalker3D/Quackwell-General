@@ -81,7 +81,19 @@ describe('patient flow', () => {
     hire(w, 'assistant'); hire(w, 'doctor', 1); hire(w, 'nurse');
     const p = w.spawnPatient('chromaticFlu');
     expect(run(w, 900, () => p.state === 'gone')).toBe(true);
+    expect(p.gpVisits).toBe(2);
+    expect(p.certainty).toBeGreaterThanOrEqual(0.8);
+    expect(p.cured).toBe(true);
+  });
+
+  it('proceeds to treatment after the maximum GP visits even when still unsure', () => {
+    const { w } = basic({ forceTreatment: 'success' });
+    hire(w, 'assistant'); hire(w, 'doctor', 1); hire(w, 'nurse');
+    const p = w.spawnPatient('chromaticFlu');
+    p.certainty = -1.2;
+    expect(run(w, 1200, () => p.state === 'gone')).toBe(true);
     expect(p.gpVisits).toBe(3);
+    expect(p.certainty).toBeLessThan(0.8);
     expect(p.cured).toBe(true);
   });
 

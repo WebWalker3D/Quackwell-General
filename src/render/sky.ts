@@ -59,8 +59,8 @@ const C = {
   nightZenith: new THREE.Color('#050a1e'), nightHorizon: new THREE.Color('#1b2a52'),
   ground: new THREE.Color('#5c7d47'),
   sunNoon: new THREE.Color('#fff3dc'), sunLow: new THREE.Color('#ff9a4d'),
-  moon: new THREE.Color('#8fb0ff'),
-  hemiSkyDay: new THREE.Color('#cfe8ff'), hemiSkyNight: new THREE.Color('#3d5aa8'),
+  moon: new THREE.Color('#7f9dff'),
+  hemiSkyDay: new THREE.Color('#cfe8ff'), hemiSkyNight: new THREE.Color('#4a63c9'),
   hemiGround: new THREE.Color('#d9b98d'), hemiGroundNight: new THREE.Color('#2b2a3d'),
 };
 
@@ -151,14 +151,14 @@ export class Sky {
     this.sun.position.copy(this.center).addScaledVector(dir, 60);
     this.sun.target.position.copy(this.center);
     this.sun.color.copy(day > 0.15 ? sunCol : C.moon);
-    this.sun.intensity = (day > 0.15 ? 0.7 + 2.1 * day : 0.6) * (1 - this.overcast * 0.65);
+    this.sun.intensity = (day > 0.15 ? 0.6 + 1.85 * day : 0.42) * (1 - this.overcast * 0.65);
     this.hemi.color.copy(lerpC(C.hemiSkyNight, C.hemiSkyDay, day));
     this.hemi.groundColor.copy(lerpC(C.hemiGroundNight, C.hemiGround, day));
-    this.hemi.intensity = 0.35 + 0.35 * day;
+    this.hemi.intensity = 0.16 + 0.44 * day;
     this.fill.position.copy(this.center).add(new THREE.Vector3(30, 25, 30).multiplyScalar(dir.x > 0 ? -1 : 1));
     this.fill.target.position.copy(this.center);
     this.fill.intensity = 0.15 + 0.1 * day;
-    this.scene.environmentIntensity = 0.12 + 0.18 * day;
+    this.scene.environmentIntensity = 0.06 + 0.22 * day;
     return this.night;
   }
 }

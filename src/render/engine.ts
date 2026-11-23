@@ -20,7 +20,7 @@ export interface Preset {
 
 export const PRESETS: Record<Quality, Preset> = {
   ultra: { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), shadow: 4096, ao: 'full', bloom: true, tiltShift: true, smaa: true, grass: 70000, particles: 4000, lightPools: true },
-  high: { pixelRatio: 1, shadow: 2048, ao: 'half', bloom: true, tiltShift: true, smaa: true, grass: 24000, particles: 2500, lightPools: true },
+  high: { pixelRatio: 1, shadow: 2048, ao: 'off', bloom: true, tiltShift: true, smaa: true, grass: 24000, particles: 2500, lightPools: true },
   medium: { pixelRatio: 0.85, shadow: 1024, ao: 'off', bloom: true, tiltShift: false, smaa: true, grass: 7000, particles: 1500, lightPools: true },
   low: { pixelRatio: 0.7, shadow: 0, ao: 'off', bloom: false, tiltShift: false, smaa: false, grass: 0, particles: 600, lightPools: false },
 };
