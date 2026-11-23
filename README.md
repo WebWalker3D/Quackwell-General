@@ -56,6 +56,10 @@ npm run dev
 Then open the address it prints, usually http://localhost:5173. The title screen has Continue, Campaign and Sandbox.
 Campaign progress and saves live in your browser's local storage.
 
+Each [release](https://github.com/WebWalker3D/Quackwell-General/releases) also has a ready-built copy that needs no
+install. Unzip it and serve the folder with any static web server, for example `npx serve quackwell-general`.
+Opening `index.html` straight from disk won't work, because browsers block its scripts there.
+
 | Action | Control |
 |---|---|
 | Pan | Right-drag, middle-drag, WASD or arrow keys |
