@@ -3,13 +3,29 @@ import { View } from './render/view';
 import { World } from './sim/world';
 import { createDemoWorld } from './sim/demo';
 import { createLoop } from './loop';
+import { ITEMS, type ItemType } from './sim/catalog';
+import { buildItemMesh } from './render/itemMeshes';
+import { placeObject } from './render/itemsView';
+import type * as THREE from 'three';
+const galleryObjs: THREE.Object3D[] = [];
 
 const params = new URLSearchParams(location.search);
 const app = document.getElementById('app')!;
 const engine = new Engine(app, (params.get('q') as Quality) || undefined);
 const demo = params.get('demo');
-const world = demo ? createDemoWorld() : new World();
+const world = demo === '1' ? createDemoWorld() : new World();
 const view = new View(engine, world);
+if (demo === 'items') {
+  const types = Object.keys(ITEMS) as ItemType[];
+  types.forEach((type, i) => {
+    const o = buildItemMesh(type);
+    placeObject(o, { type, x: 11 + (i % 7) * 3.5, z: 9 + Math.floor(i / 7) * 4, rot: 0 });
+    o.userData.anim = { active: true, night: 0, level: 1 };
+    galleryObjs.push(o);
+    engine.scene.add(o);
+  });
+  engine.rig.focus(22, 13, 26);
+}
 if (params.has('t')) view.todOverride = Number(params.get('t'));
 if (params.has('cam')) engine.rig.setView(Number(params.get('cam')));
 if (params.has('zoom')) engine.rig.focus(Number(params.get('fx') ?? 22), Number(params.get('fz') ?? 18), Number(params.get('zoom')));
@@ -25,6 +41,7 @@ function frame(now: number) {
   const alpha = loop.advance(dt, speed);
   world.drainEvents();
   view.frame(dt, alpha);
+  for (const o of galleryObjs) o.userData.animate?.(view.time, dt, o.userData.anim);
   engine.render(dt);
   if (++frames === 8) (window as any).__ready = true;
   requestAnimationFrame(frame);
