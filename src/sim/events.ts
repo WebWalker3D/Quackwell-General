@@ -29,6 +29,9 @@ export type SimEvent =
   | { type: 'built'; kind: 'room' | 'item'; id: number }
   | { type: 'sold'; kind: 'room' | 'item'; id: number; refund: number; x: number; z: number }
   | { type: 'hired'; id: number }
+  | { type: 'promoted'; id: number; skill: number }
+  | { type: 'trained'; id: number; skill: number }
+  | { type: 'quit'; id: number }
   | { type: 'fired'; id: number }
   | { type: 'service'; roomId: number; patientId: number; phase: 'start' | 'end' }
   | { type: 'toast'; text: string; tone: 'info' | 'warn' | 'good' | 'bad' }
@@ -41,6 +44,7 @@ export type Command =
   | { type: 'sellItem'; id: number }
   | { type: 'hire'; candidateId: number }
   | { type: 'fire'; id: number }
+  | { type: 'train'; id: number }
   | { type: 'setPriceMult'; value: number };
 
 export interface CommandResult { ok: boolean; reason?: string; id?: number }

@@ -27,6 +27,15 @@ import type { CommandResult } from './events';
 import type { World } from './world';
 
 export const HIRE_ROLES: Role[] = ['doctor', 'nurse', 'assistant'];
+
+const ENERGY_POST = 0.25;
+const ENERGY_BUSY = 0.45;
+const BREAK_AT = 22;
+const BREAK_DONE = 95;
+const RECOVER = 3.5;
+export const XP_PER_STAR = 30;
+export const TRAIN_COST_PER_STAR = 1500;
+const TRAIN_SECONDS_PER_STAR = 50;
 const PER_ROLE = 3;
 export const EXIT = { x: 0.5, z: 33.5 };
 
@@ -114,7 +123,24 @@ export function releaseSpot(w: World, m: Mover) {
   m.pose = 'stand';
 }
 
+/** The item + spot index of a staff member's post (room console or front desk). */
+export function postSpot(w: World, st: Staff): { item: Item; idx: number } | null {
+  if (st.post >= 0) {
+    const room = w.room(st.post);
+    return room ? staffSpotOf(w, room) : null;
+  }
+  if (st.post < -1) {
+    const it = w.item(-st.post - 1);
+    if (!it) return null;
+    const idx = ITEMS[it.type].spots.findIndex((sp) => sp.kind === 'staff');
+    return idx >= 0 ? { item: it, idx } : null;
+  }
+  return null;
+}
+
 function unpost(w: World, st: Staff) {
+  const ps = postSpot(w, st);
+  if (ps && ps.item.claims[ps.idx] === st.id) ps.item.claims[ps.idx] = -1;
   if (st.post >= 0) {
     const room = w.room(st.post);
     if (room && room.staffId === st.id) room.staffId = -1;
@@ -125,15 +151,97 @@ function unpost(w: World, st: Staff) {
   stop(st);
 }
 
+function freeSpot(w: World, kind: 'rest' | 'study', roomType: 'staffRoom' | 'training', st: Staff): { item: Item; idx: number } | null {
+  let best: { item: Item; idx: number } | null = null;
+  let bestD = Infinity;
+  for (const room of w.state.rooms) {
+    if (room.type !== roomType) continue;
+    for (const iid of room.items) {
+      const it = w.item(iid);
+      if (!it) continue;
+      ITEMS[it.type].spots.forEach((sp, idx) => {
+        if (sp.kind !== kind || it.claims[idx] !== -1) return;
+        const ws = itemSpots(it)[idx];
+        const d = Math.abs(ws.ax - st.x) + Math.abs(ws.az - st.z);
+        if (d < bestD) { bestD = d; best = { item: it, idx }; }
+      });
+    }
+  }
+  return best;
+}
+
+/** Leave the post spot without giving up the post, and walk to `target`. */
+function stepAway(w: World, st: Staff, target: { item: Item; idx: number }, state: Staff['state']) {
+  const cur = st.spot ? w.item(st.spot.item) : undefined;
+  if (cur && st.spot) {
+    const sp = itemSpots(cur)[st.spot.idx];
+    st.x = sp.ax;
+    st.z = sp.az;
+  }
+  st.pose = 'stand';
+  target.item.claims[target.idx] = st.id;
+  st.spot = { item: target.item.id, idx: target.idx };
+  const ts = spotOf(target.item, target.idx);
+  if (!goTo(w.grid, st, ts.ax, ts.az)) {
+    target.item.claims[target.idx] = -1;
+    st.spot = null;
+    return false;
+  }
+  st.state = state;
+  return true;
+}
+
+/** +1 xp per completed service; every XP_PER_STAR earns a star and a raise. */
+export function gainXp(w: World, st: Staff) {
+  st.xp++;
+  if (st.xp >= XP_PER_STAR) {
+    st.xp = 0;
+    if (st.skill < 5) {
+      st.skill++;
+      st.salary = salaryFor(st.role, st.skill);
+      w.emit({ type: 'promoted', id: st.id, skill: st.skill });
+    }
+  }
+}
+
+export function trainStaff(w: World, id: number): CommandResult {
+  const s = w.state;
+  const st = w.staffById(id);
+  if (!st || st.state === 'leaving') return { ok: false, reason: 'no such staff' };
+  if (st.state === 'toTraining' || st.state === 'training') return { ok: false, reason: 'already training' };
+  if (st.skill >= 5) return { ok: false, reason: 'already a five-star expert' };
+  if (!s.rooms.some((r) => r.type === 'training')) return { ok: false, reason: 'build a Training Room first' };
+  const desk = freeSpot(w, 'study', 'training', st);
+  if (!desk) return { ok: false, reason: 'the Training Room is full' };
+  const cost = TRAIN_COST_PER_STAR * st.skill;
+  if (s.money < cost) return { ok: false, reason: 'not enough money' };
+  unpost(w, st);
+  if (!stepAway(w, st, desk, 'toTraining')) { st.state = 'idle'; return { ok: false, reason: 'cannot reach the Training Room' }; }
+  s.money -= cost;
+  s.stats.spent += cost;
+  s.monthStats.spent += cost;
+  st.trainLeft = TRAIN_SECONDS_PER_STAR * st.skill;
+  return { ok: true, id: st.id };
+}
+
+function quit(w: World, st: Staff) {
+  unpost(w, st);
+  st.state = 'leaving';
+  goTo(w.grid, st, EXIT.x, EXIT.z);
+  w.emit({ type: 'quit', id: st.id });
+  w.emit({ type: 'toast', tone: 'bad', text: `${st.name} quit, completely exhausted. A Staff Room keeps people going.` });
+}
+
 /** Free any staff working in a room or at an item that is about to disappear. */
 export function releaseStaffFrom(w: World, what: { room?: Room; item?: Item }) {
   for (const st of w.state.staff) {
     const inRoom = what.room && st.post === what.room.id;
-    const atItem = what.item && st.spot?.item === what.item.id;
+    const atItem = what.item && (st.spot?.item === what.item.id || st.post === -what.item.id - 1);
     const roomItem = what.room && st.spot && what.room.items.includes(st.spot.item);
     if (inRoom || atItem || roomItem) {
       unpost(w, st);
       if (st.state !== 'leaving') st.state = 'idle';
+      st.trainLeft = 0;
     }
   }
 }
@@ -161,9 +269,22 @@ function findPost(w: World, st: Staff): { room: Room | null; item: Item; idx: nu
   return best;
 }
 
+function needs(w: World, st: Staff, dt: number) {
+  if (st.state === 'atPost') st.energy = Math.max(0, st.energy - dt * (st.busy ? ENERGY_BUSY : ENERGY_POST));
+  else if (st.state === 'onBreak') {
+    st.energy = Math.min(100, st.energy + dt * RECOVER);
+    st.mood = Math.min(100, st.mood + dt * 0.5);
+  }
+  if (st.energy < 10) st.mood -= dt * 0.25;
+  else if (st.energy > 50) st.mood = Math.min(80, st.mood + dt * 0.03);
+  st.mood = Math.max(0, st.mood);
+  if (st.mood <= 0) quit(w, st);
+}
+
 export function updateStaff(w: World, dt: number) {
   const s = w.state;
   for (const st of s.staff) {
+    if (st.state !== 'leaving') needs(w, st, dt);
     switch (st.state) {
       case 'idle': {
         const post = findPost(w, st);
@@ -195,8 +316,51 @@ export function updateStaff(w: World, dt: number) {
         }
         break;
       }
-      case 'atPost':
+      case 'atPost': {
+        if (st.energy < BREAK_AT && !st.busy) {
+          const rest = freeSpot(w, 'rest', 'staffRoom', st);
+          if (rest) stepAway(w, st, rest, 'toBreak');
+          else if (st.energy < 10) w.hint('noStaffRoom', 'Your staff are exhausted and slowing down. Build a Staff Room!', 'warn', 60);
+        }
         break;
+      }
+      case 'toBreak':
+      case 'toTraining': {
+        const it = st.spot ? w.item(st.spot.item) : undefined;
+        if (!it || !st.spot) { unpost(w, st); st.state = 'idle'; break; }
+        if (step(w.grid, st, dt)) {
+          hop(st, spotOf(it, st.spot.idx));
+          st.state = st.state === 'toBreak' ? 'onBreak' : 'training';
+        }
+        break;
+      }
+      case 'onBreak': {
+        if (st.energy >= BREAK_DONE) {
+          releaseSpot(w, st);
+          const ps = postSpot(w, st);
+          if (ps && ps.item.claims[ps.idx] === st.id) {
+            st.spot = { item: ps.item.id, idx: ps.idx };
+            const sp = spotOf(ps.item, ps.idx);
+            st.state = goTo(w.grid, st, sp.ax, sp.az) ? 'toPost' : 'idle';
+          } else {
+            unpost(w, st);
+            st.state = 'idle';
+          }
+        }
+        break;
+      }
+      case 'training': {
+        st.trainLeft -= dt;
+        if (st.trainLeft <= 0) {
+          st.trainLeft = 0;
+          st.skill = Math.min(5, st.skill + 1);
+          st.salary = salaryFor(st.role, st.skill);
+          releaseSpot(w, st);
+          st.state = 'idle';
+          w.emit({ type: 'trained', id: st.id, skill: st.skill });
+        }
+        break;
+      }
       case 'leaving':
         if (step(w.grid, st, dt) || !st.dest) st.post = -2;
         break;

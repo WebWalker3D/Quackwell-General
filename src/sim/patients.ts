@@ -27,7 +27,7 @@ import { goTo, hop, moving, spotOf, step, stop } from './move';
 import { randomName } from './names';
 import { chance, int, rand, range } from './rng';
 import type { Item, Patient, Room } from './state';
-import { releaseSpot, staffed } from './staff';
+import { gainXp, releaseSpot, staffed } from './staff';
 import { isRoomUnlocked } from './unlocks';
 import type { Pt } from './path';
 import type { World } from './world';
@@ -541,8 +541,11 @@ export function updatePatients(w: World, dt: number) {
         if (!room) { p.state = 'seekRoom'; break; }
         const st = staffed(w, room);
         if (!st) break;
-        p.timer -= dt;
-        if (p.timer <= 0) completeService(w, p, room, st.skill, st.trait);
+        p.timer -= dt * (st.energy < 20 ? 1 / 1.5 : 1);
+        if (p.timer <= 0) {
+          completeService(w, p, room, st.skill, st.trait);
+          gainXp(w, st);
+        }
         break;
       }
 

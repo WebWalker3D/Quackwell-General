@@ -23,7 +23,7 @@ import { calendar, isNight, monthLabel, MONTH } from './economy';
 import { range } from './rng';
 import { createState, emptyStats, type Item, type Mover, type Patient, type Room, type Staff, type WorldState } from './state';
 import type { Command, CommandResult, SimEvent } from './events';
-import { fireStaff, genCandidates, hireCandidate, releaseStaffFrom, updateStaff } from './staff';
+import { fireStaff, genCandidates, hireCandidate, releaseStaffFrom, trainStaff, updateStaff } from './staff';
 import { releasePatientsFrom, spawnPatient, updatePatients, updateRooms, type SpawnOpts } from './patients';
 import { BALANCE, ILLNESSES, type IllnessType } from './catalog';
 import { stop } from './move';
@@ -180,6 +180,8 @@ export class World {
         return hireCandidate(this, c.candidateId);
       case 'fire':
         return fireStaff(this, c.id);
+      case 'train':
+        return trainStaff(this, c.id);
       case 'setPriceMult':
         s.priceMult = Math.max(0.5, Math.min(2, c.value));
         return { ok: true };
