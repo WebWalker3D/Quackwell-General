@@ -89,6 +89,7 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 (window as any).__info = () => ({ fps: engine.fps.toFixed(1), q: engine.quality, scale: engine.renderScale, patients: world.state.patients.length, money: world.state.money });
 (window as any).__speed = setSpeed;
+(window as any).__sfx = sfx;
 (window as any).__world = world;
 (window as any).__screenOf = (x: number, z: number, y = 0) => {
   const v = new Vector3(x + 0.5, y, z + 0.5).project(engine.camera);
