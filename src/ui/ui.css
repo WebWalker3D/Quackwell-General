@@ -1,3 +1,21 @@
+/*
+ * The contents of this file are subject to the Common Public Attribution License
+ * Version 1.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * https://github.com/WebWalker3D/Quackwell-General/blob/main/LICENSE. The License is
+ * based on the Mozilla Public License Version 1.1 but Sections 14 and 15 have been
+ * added to cover use of software over a computer network and provide for limited
+ * attribution for the Original Developer. In addition, Exhibit A has been modified
+ * to be consistent with Exhibit B.
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+ * specific language governing rights and limitations under the License.
+ *
+ * The Original Code is Quackwell General.
+ * The Initial Developer of the Original Code is Blaine Bouvier. All portions of the
+ * code written by Blaine Bouvier are Copyright (c) 2026. All Rights Reserved.
+ */
 :root {
   --teal: #19a7a0;
   --teal-deep: #0f7d78;
@@ -25,7 +43,7 @@ body { user-select: none; -webkit-user-select: none; font-family: var(--body); c
 
 #overlay { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-size: 15px; user-select: none; -webkit-user-select: none; }
-#ui button, #ui .card, #ui .panel, #ui .tray, #ui .strip, #ui input { pointer-events: auto; }
+#ui button, #ui .card, #ui .panel, #ui .tray, #ui .strip, #ui input, #ui a { pointer-events: auto; }
 #ui button { font-family: var(--display); color: var(--ink); cursor: pointer; }
 #ui button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 
@@ -169,6 +187,11 @@ input[type='range'] { width: 100%; accent-color: var(--teal); }
 .welcome ul { margin: 8px 0 18px; padding-left: 18px; font-weight: 700; line-height: 1.6; }
 .welcome .btn { font-size: 20px; padding: 8px 22px; }
 
+.credit { display: flex; flex-direction: column; gap: 1px; margin: 18px 0 0; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+.credit a { color: var(--teal-deep); text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.credit a:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; border-radius: 4px; }
+.about { margin-top: 16px; padding-top: 12px; border-top: 2px dashed #c9d8e6; font-size: 13px; font-weight: 600; }
+.about .credit { margin-top: 6px; }
 .fps { position: absolute; left: 16px; bottom: 16px; font: 700 12px var(--body); color: #fff; text-shadow: 0 1px 2px #000; }
 
 /* ---------- floating world labels ---------- */

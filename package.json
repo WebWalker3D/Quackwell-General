@@ -2,6 +2,14 @@
   "name": "quackwell-general",
   "private": true,
   "version": "0.1.0",
+  "description": "Quackwell General: a toy-diorama hospital management sim with over-the-top real-time graphics.",
+  "license": "CPAL-1.0",
+  "author": "Blaine Bouvier",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WebWalker3D/Quackwell-General.git"
+  },
+  "homepage": "https://github.com/WebWalker3D/Quackwell-General",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

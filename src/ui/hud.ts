@@ -1,3 +1,21 @@
+/*
+ * The contents of this file are subject to the Common Public Attribution License
+ * Version 1.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * https://github.com/WebWalker3D/Quackwell-General/blob/main/LICENSE. The License is
+ * based on the Mozilla Public License Version 1.1 but Sections 14 and 15 have been
+ * added to cover use of software over a computer network and provide for limited
+ * attribution for the Original Developer. In addition, Exhibit A has been modified
+ * to be consistent with Exhibit B.
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+ * specific language governing rights and limitations under the License.
+ *
+ * The Original Code is Quackwell General.
+ * The Initial Developer of the Original Code is Blaine Bouvier. All portions of the
+ * code written by Blaine Bouvier are Copyright (c) 2026. All Rights Reserved.
+ */
 import type { World } from '../sim/world';
 import type { Engine, Quality } from '../render/engine';
 import { QUALITY_NAMES } from '../render/engine';
@@ -15,6 +33,15 @@ const stars = (n: number) => `<span class="stars" aria-label="${n} of 5 stars">$
 const ITEM_ICON: Partial<Record<ItemType, string>> = {
   reception: '🛎️', bench: '🪑', vending: '🥤', cooler: '💧', plant: '🪴', radiator: '♨️', bin: '🗑️', lamp: '💡', cabinet: '🗄️',
 };
+/** CPAL-1.0 Exhibit B attribution; must stay visible in derived works. */
+export const ATTRIBUTION = {
+  copyright: '© 2026 Blaine Bouvier',
+  phrase: 'Originally created by Blaine Bouvier',
+  url: 'https://github.com/WebWalker3D/Quackwell-General',
+};
+const creditHtml = () =>
+  `<p class="credit"><span>${ATTRIBUTION.copyright}</span><span>${ATTRIBUTION.phrase}</span><a href="${ATTRIBUTION.url}" target="_blank" rel="noopener">${ATTRIBUTION.url.replace('https://', '')}</a></p>`;
+
 const ROLE_ICON: Record<Role, string> = { doctor: '🩺', nurse: '💉', assistant: '📋', janitor: '🧹' };
 
 type TrayName = 'rooms' | 'items' | 'staff' | 'hospital' | 'settings';
@@ -122,6 +149,7 @@ export class Hud {
         <li>The clipboard on the left lists your first goals</li>
       </ul>
       <button class="btn" data-act="start">Open the doors</button>
+      ${creditHtml()}
     </div>`;
     this.root.appendChild(w);
     w.querySelector<HTMLButtonElement>('button')!.focus();
@@ -289,7 +317,8 @@ export class Hud {
             <input type="range" min="0" max="100" value="${Math.round(this.d.sfx.volume * 100)}" data-vol aria-label="Sound volume">
             <p class="sub" style="margin-top:12px">Press P to hide the interface for screenshots.</p>
             <button class="btn pink" data-act="newgame">Start a new hospital</button>
-          </div></div>`;
+          </div></div>
+          <div class="about"><b>Quackwell General</b>, licensed under the Common Public Attribution License 1.0.${creditHtml()}</div>`;
         break;
       }
     }
