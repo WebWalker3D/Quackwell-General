@@ -72,6 +72,8 @@ export class Sky {
   private mat: THREE.ShaderMaterial;
   /** 0 = full day, 1 = full night */
   night = 0;
+  /** 0 clear .. 1 stormy; dims the sun and greys the sky */
+  overcast = 0;
   /** 0 at night, 1 at noon */
   daylight = 1;
   sunDir = new THREE.Vector3();
@@ -130,8 +132,9 @@ export class Sky {
     this.night = 1 - day;
     this.daylight = day;
 
-    const zen = lerpC(lerpC(C.nightZenith, C.dayZenith, day), C.duskZenith, dusk * 0.6);
-    const hor = lerpC(lerpC(C.nightHorizon, C.dayHorizon, day), C.duskHorizon, dusk * 0.75);
+    const grey = new THREE.Color('#8e9aaa');
+    const zen = lerpC(lerpC(lerpC(C.nightZenith, C.dayZenith, day), C.duskZenith, dusk * 0.6), grey.clone().multiplyScalar(0.3 + 0.7 * day), this.overcast * 0.8);
+    const hor = lerpC(lerpC(lerpC(C.nightHorizon, C.dayHorizon, day), C.duskHorizon, dusk * 0.75), grey.clone().multiplyScalar(0.3 + 0.7 * day), this.overcast * 0.7);
     const u = this.mat.uniforms;
     (u.zenith.value as THREE.Color).copy(zen);
     (u.horizon.value as THREE.Color).copy(hor);
@@ -148,7 +151,7 @@ export class Sky {
     this.sun.position.copy(this.center).addScaledVector(dir, 60);
     this.sun.target.position.copy(this.center);
     this.sun.color.copy(day > 0.15 ? sunCol : C.moon);
-    this.sun.intensity = day > 0.15 ? 0.7 + 2.1 * day : 0.6;
+    this.sun.intensity = (day > 0.15 ? 0.7 + 2.1 * day : 0.6) * (1 - this.overcast * 0.65);
     this.hemi.color.copy(lerpC(C.hemiSkyNight, C.hemiSkyDay, day));
     this.hemi.groundColor.copy(lerpC(C.hemiGroundNight, C.hemiGround, day));
     this.hemi.intensity = 0.35 + 0.35 * day;

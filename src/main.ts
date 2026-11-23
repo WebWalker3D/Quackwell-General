@@ -14,7 +14,11 @@ const app = document.getElementById('app')!;
 const engine = new Engine(app, (params.get('q') as Quality) || undefined);
 const demo = params.get('demo');
 const world = demo === '1' ? createDemoWorld() : new World();
-const view = new View(engine, world);
+const overlay = document.createElement('div');
+overlay.id = 'overlay';
+document.body.appendChild(overlay);
+const view = new View(engine, world, overlay);
+if (params.has('weather')) view.weatherOverride = params.get('weather') as 'rain';
 if (demo === 'items') {
   const types = Object.keys(ITEMS) as ItemType[];
   types.forEach((type, i) => {
