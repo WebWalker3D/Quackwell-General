@@ -39,7 +39,7 @@ function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   const alpha = loop.advance(dt, speed);
-  world.drainEvents();
+  view.handle(world.drainEvents());
   view.frame(dt, alpha);
   for (const o of galleryObjs) o.userData.animate?.(view.time, dt, o.userData.anim);
   engine.render(dt);
