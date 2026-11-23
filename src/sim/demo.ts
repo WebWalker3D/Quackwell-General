@@ -67,5 +67,8 @@ export function createDemoWorld(seed = 11, warmup = 45): World {
     w.tick(1 / 30);
     w.drainEvents();
   }
+  // land on a sunny early afternoon
+  s.t = 20;
+  s.lastMonth = 0;
   return w;
 }
