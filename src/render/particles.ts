@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { radialTex } from './textures';
 
-export type PKind = 'sparkle' | 'spark' | 'steam' | 'dust' | 'bubble' | 'drip' | 'snow' | 'rain' | 'puff' | 'water' | 'heart';
+export type PKind = 'sparkle' | 'spark' | 'steam' | 'dust' | 'bubble' | 'drip' | 'snow' | 'rain' | 'puff' | 'water' | 'heart' | 'soap' | 'smoke';
 
 interface KindDef {
   additive: boolean;
@@ -46,6 +46,8 @@ const KINDS: Record<PKind, KindDef> = {
   rain: { additive: false, life: [0.5, 0.7], size: [0.015, 0.02], grow: 0, gravity: 14, drag: 0, colors: col('#cfe3ff', '#e3eeff'), alpha: 0.55, stretch: 14 },
   puff: { additive: false, life: [0.8, 1.4], size: [0.3, 0.5], grow: 1.4, gravity: -0.4, drag: 2.5, colors: col('#8a8f99', '#6f7480', '#a3a8b2'), alpha: 0.65 },
   water: { additive: false, life: [0.7, 0.9], size: [0.04, 0.07], grow: 0, gravity: 9.8, drag: 0.1, colors: col('#bdf0ff', '#ffffff', '#8fe1ff'), alpha: 0.85, stretch: 1.6 },
+  soap: { additive: false, life: [1.6, 2.6], size: [0.07, 0.15], grow: 0.15, gravity: -0.35, drag: 1.4, colors: col('#d8f6ff', '#ffe0f7', '#e8ffe0', '#fff6d0'), alpha: 0.7 },
+  smoke: { additive: false, life: [1.4, 2.4], size: [0.2, 0.4], grow: 1.3, gravity: -0.7, drag: 1.2, colors: col('#4a4f5a', '#5f6470', '#3a3e47'), alpha: 0.55 },
   heart: { additive: true, life: [0.9, 1.4], size: [0.12, 0.2], grow: 0.2, gravity: -1.2, drag: 1.2, colors: col('#ff5c8a', '#ff8fb1'), alpha: 1.4 },
 };
 
@@ -278,6 +280,8 @@ export class Particles {
       case 'steam': return new THREE.Vector3(r() * 0.3, 0.6 + Math.random() * 0.4, r() * 0.3);
       case 'bubble': return new THREE.Vector3(r() * 0.3, 0.4, r() * 0.3);
       case 'snow': return new THREE.Vector3(r() * 0.3, -0.2, r() * 0.3);
+      case 'soap': return new THREE.Vector3(r() * 0.5, 0.3, r() * 0.5);
+      case 'smoke': return new THREE.Vector3(r() * 0.3, 0.5, r() * 0.3);
       case 'drip': return new THREE.Vector3(0, -0.5, 0);
       case 'rain': return new THREE.Vector3(0.8, -9, 0.3);
       default: return new THREE.Vector3(r() * 0.5, Math.random() * 0.5, r() * 0.5);

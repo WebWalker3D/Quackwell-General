@@ -37,17 +37,25 @@ const BLACK = new THREE.Color('#15171c');
 const CHEEK = new THREE.Color('#ff8fa3');
 const WHITE = new THREE.Color('#ffffff');
 const FROST_SKIN = new THREE.Color('#bfe6ff');
+const GHOST_SKIN = new THREE.Color('#e8f4ff');
+const VIP_SUIT = new THREE.Color('#2c3440');
+const VIP_HAT = new THREE.Color('#15171c');
+const JANITOR_CAP = new THREE.Color('#3b5bdb');
+const MOP = new THREE.Color('#d9b38c');
+const CLIPBOARD = new THREE.Color('#c98a52');
 
 /** item types whose lie spot sits at a given mattress height */
 const LIE_Y: Record<string, number> = { bed: 0.83, scanner: 0.78 };
 
 type Part =
   | 'leg' | 'shoe' | 'torso' | 'coat' | 'arm' | 'hand' | 'head' | 'eye' | 'mouth' | 'cheek'
-  | 'hairCap' | 'hairBun' | 'hairSpikes' | 'nurseCap' | 'mirror' | 'belly' | 'cloud';
+  | 'hairCap' | 'hairBun' | 'hairSpikes' | 'nurseCap' | 'mirror' | 'belly' | 'cloud'
+  | 'cap' | 'mop' | 'topHat' | 'clipboard' | 'badge';
 
 const PER: Record<Part, number> = {
   leg: 2, shoe: 2, torso: 1, coat: 1, arm: 2, hand: 2, head: 1, eye: 2, mouth: 1, cheek: 2,
   hairCap: 1, hairBun: 1, hairSpikes: 1, nurseCap: 1, mirror: 1, belly: 1, cloud: 1,
+  cap: 1, mop: 1, topHat: 1, clipboard: 1, badge: 1,
 };
 
 function lathe(pts: [number, number][], seg = 20) {
@@ -84,7 +92,21 @@ function geometries(): Record<Part, THREE.BufferGeometry> {
     puffs.push(new THREE.SphereGeometry(r, 12, 8).translate(x, y, z).toNonIndexed());
   }
   const cloud = mergeGeometries(puffs)!;
-  return { leg, shoe, torso, coat, arm, hand, head, eye, mouth, cheek, hairCap, hairBun, hairSpikes, nurseCap, mirror, belly, cloud };
+  const cap = mergeGeometries([
+    new THREE.SphereGeometry(0.272, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42).toNonIndexed(),
+    new THREE.CylinderGeometry(0.2, 0.2, 0.025, 20, 1, false, -Math.PI / 2, Math.PI).translate(0, 0.08, 0.13).toNonIndexed(),
+  ])!;
+  const mop = mergeGeometries([
+    new THREE.CylinderGeometry(0.018, 0.018, 1.25, 6).translate(0, -0.35, 0).toNonIndexed(),
+    new THREE.BoxGeometry(0.34, 0.06, 0.12).translate(0, -0.98, 0).toNonIndexed(),
+  ])!;
+  const topHat = mergeGeometries([
+    new THREE.CylinderGeometry(0.17, 0.17, 0.32, 20).translate(0, 0.38, 0).toNonIndexed(),
+    new THREE.CylinderGeometry(0.29, 0.29, 0.03, 24).translate(0, 0.23, 0).toNonIndexed(),
+  ])!;
+  const clipboard = new THREE.BoxGeometry(0.2, 0.27, 0.02);
+  const badge = mergeGeometries([new THREE.BoxGeometry(0.22, 0.07, 0.04).toNonIndexed(), new THREE.BoxGeometry(0.07, 0.22, 0.04).toNonIndexed()])!;
+  return { leg, shoe, torso, coat, arm, hand, head, eye, mouth, cheek, hairCap, hairBun, hairSpikes, nurseCap, mirror, belly, cloud, cap, mop, topHat, clipboard, badge };
 }
 
 interface RS {
@@ -129,7 +151,7 @@ export class Characters {
   private xray: THREE.InstancedMesh[] = [];
   private states = new Map<number, RS>();
   private n = 0;
-  onEmit: ((kind: 'spark' | 'snow', pos: THREE.Vector3, rate: number, dt: number) => void) | null = null;
+  onEmit: ((kind: 'spark' | 'snow' | 'bubble', pos: THREE.Vector3, rate: number, dt: number) => void) | null = null;
 
   constructor(scene: THREE.Scene, private capacity = 260) {
     scene.add(this.group);
@@ -142,15 +164,16 @@ export class Characters {
       mirror: metal('#e9eef5', 0.12),
       belly: glow('#ffb43d', 5),
       cloud: plastic('#ffffff', 0.7, 0.2),
+      badge: glow('#ff2a48', 4),
     };
     for (const part of Object.keys(PER) as Part[]) {
       const m = new THREE.InstancedMesh(geo[part], mats[part] ?? skinMat, capacity * PER[part]);
       m.count = 0;
       m.frustumCulled = false;
-      const casts: Part[] = ['leg', 'torso', 'coat', 'arm', 'head', 'hairCap', 'hairBun', 'hairSpikes', 'cloud'];
+      const casts: Part[] = ['leg', 'torso', 'coat', 'arm', 'head', 'hairCap', 'hairBun', 'hairSpikes', 'cloud', 'cap', 'topHat', 'mop'];
       m.castShadow = casts.includes(part);
-      m.receiveShadow = part !== 'belly';
-      if (part !== 'belly') m.setColorAt(0, WHITE);
+      m.receiveShadow = part !== 'belly' && part !== 'badge';
+      if (part !== 'belly' && part !== 'badge') m.setColorAt(0, WHITE);
       this.meshes[part] = m;
       this.group.add(m);
     }
@@ -257,11 +280,15 @@ export class Characters {
     const skin = tmp.c.copy(SKIN[hash(look, 0, SKIN.length)]);
     if (ill === 'chromaticFlu') skin.setHSL((t * 0.35 + m.id * 0.13) % 1, 0.75, 0.62);
     if (ill === 'frostbiteFever') skin.lerp(FROST_SKIN, 0.55);
+    if (ill === 'ghosting') skin.lerp(GHOST_SKIN, 0.6);
     const skinC = skin.clone();
-    const top = staff ? ROLE_TOP[staff.role] : SHIRT[hash(look, 8, SHIRT.length)];
-    const pants = staff ? ROLE_PANTS[staff.role] : PANTS[hash(look, 12, PANTS.length)];
+    const vip = !!pat?.vip;
+    const janitor = staff?.role === 'janitor';
+    const top = vip ? VIP_SUIT : staff ? ROLE_TOP[staff.role] : SHIRT[hash(look, 8, SHIRT.length)];
+    const pants = vip ? VIP_SUIT : staff ? ROLE_PANTS[staff.role] : PANTS[hash(look, 12, PANTS.length)];
     let hairStyle = staff?.role === 'nurse' ? 2 : hash(look, 3, 4); // 0 cap,1 bun,2 short cap,3 bald-ish cap
     if (ill === 'staticCling') hairStyle = 9;
+    if (vip || janitor) hairStyle = -1;
     const hairC = ill === 'staticCling' ? new THREE.Color('#ffe066') : HAIR[hash(look, 5, HAIR.length)];
 
     // root transform
@@ -277,7 +304,8 @@ export class Characters {
     if (rs.celebrate > 0) hop = Math.abs(Math.sin(rs.celebrate * 9)) * 0.35 * Math.min(1, rs.celebrate);
     rs.y = baseY + bob + hop;
     const sway = ill === 'jellylegs' ? Math.sin(t * 7 + m.id) * 0.12 : 0;
-    tmp.q.setFromEuler(tmp.e.set(pitch, rs.face, sway, 'YXZ'));
+    const backwards = ill === 'backwardsWalking' && rs.walk > 0.3 ? Math.PI : 0;
+    tmp.q.setFromEuler(tmp.e.set(pitch, rs.face + backwards, sway, 'YXZ'));
     if (pose === 'lie') {
       // lie along the facing direction, head toward the back of the spot
       const fx = Math.sin(rs.face), fz = Math.cos(rs.face);
@@ -289,6 +317,11 @@ export class Characters {
     // squash on footfall, stretch on hops
     const squash = 1 - Math.max(0, Math.cos(rs.phase * 2)) * 0.035 * rs.walk + hop * 0.15;
     tmp.s.set(scale * (2 - squash) * 0.5 + scale * 0.5, scale * squash, scale * (2 - squash) * 0.5 + scale * 0.5);
+    if (ill === 'ghosting') {
+      const g = Math.sin(t * 1.3 + m.id * 2.1);
+      const vis = g > 0.7 ? Math.max(0.001, 1 - (g - 0.7) / 0.2) : 1;
+      tmp.s.multiplyScalar(vis);
+    }
     tmp.root.compose(tmp.p, tmp.q, tmp.s);
 
     const L = (x: number, y: number, z: number, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
@@ -330,14 +363,26 @@ export class Characters {
       if (rs.celebrate > 0) { ax = -2.8 + Math.sin(t * 16 + side) * 0.2; az = side * 0.35; }
       if (rs.slump > 0) { ax = 0.15; az = side * 0.02; }
       if (ill === 'staticCling') az += side * 0.35;
+      const sweeping = janitor && staff?.state === 'doingJob';
+      if (janitor && side === 1) { ax = sweeping ? -0.7 + Math.sin(t * 8) * 0.45 : -0.35 + armA * 0.3; az = 0.1; }
+      if (vip && side === -1) { ax = -1.0; az = -0.1; }
       const armM = L(side * (0.215 * inflate), 0.79, 0, ax, 0, az).clone();
       this.put('arm', counts, armM, top);
       tmp.local.makeTranslation(0, -0.36, 0);
-      this.put('hand', counts, tmp.out.multiplyMatrices(armM, tmp.local), skinC);
+      const handM = tmp.out.multiplyMatrices(armM, tmp.local).clone();
+      this.put('hand', counts, handM, skinC);
+      if (side === 1) {
+        tmp.local.compose(tmpV.set(0, 0, 0.05), tmpQ2.setFromEuler(tmpE2.set(0.5, 0, 0)), tmpS2.set(1, 1, 1));
+        this.put('mop', counts, janitor ? tmp.out.multiplyMatrices(handM, tmp.local) : ZERO, MOP);
+      } else {
+        tmp.local.compose(tmpV.set(0, -0.02, 0.1), tmpQ2.setFromEuler(tmpE2.set(1.2, 0, 0)), tmpS2.set(1, 1, 1));
+        this.put('clipboard', counts, vip ? tmp.out.multiplyMatrices(handM, tmp.local) : ZERO, CLIPBOARD);
+      }
     }
     void armA; void armSpread;
     // head
-    const nod = rs.slump > 0 ? 0.45 : (working ? 0.18 : 0) + Math.sin(rs.phase * 2) * 0.03 * rs.walk;
+    const tired = staff && staff.energy < 15 && staff.state !== 'onBreak' ? 0.3 + Math.sin(t * 1.2) * 0.1 : 0;
+    const nod = rs.slump > 0 ? 0.45 : (working ? 0.18 : 0) + tired + Math.sin(rs.phase * 2) * 0.03 * rs.walk;
     const headM = L(0, 1.07, 0, nod, 0, Math.sin(t * 0.7 + m.id) * 0.04, 1, 0.96, 0.98).clone();
     this.put('head', counts, headM, skinC);
     const sub = (x: number, y: number, z: number, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
@@ -359,6 +404,12 @@ export class Characters {
     this.put('hairSpikes', counts, hairStyle === 9 || hairStyle === 3 ? sub(0, 0, 0, 0, t * (ill === 'staticCling' ? 0.5 : 0), 0, fizz, hairStyle === 3 ? 0.55 : fizz, fizz) : hide, hairC);
     this.put('nurseCap', counts, staff?.role === 'nurse' ? sub(0, 0.25, 0.02, -0.15) : hide, WHITE);
     this.put('mirror', counts, staff?.role === 'doctor' ? sub(0, 0.15, 0.225, -0.25) : hide, WHITE);
+    this.put('cap', counts, janitor ? sub(0, 0.01, 0, -0.1) : hide, JANITOR_CAP);
+    this.put('topHat', counts, vip ? sub(0, 0.02, 0, -0.08) : hide, VIP_HAT);
+    if (pat?.emergency && !pat.cured) {
+      const b = 1 + Math.sin(t * 6) * 0.12;
+      this.put('badge', counts, L(0, 1.78 + Math.sin(t * 3 + m.id) * 0.05, 0, 0, t * 2, 0, b, b, b));
+    }
     // illness extras
     if (ill === 'glowbelly') {
       const pulse = 1 + Math.sin(t * 4 + m.id) * 0.15;
@@ -371,6 +422,10 @@ export class Characters {
     }
     if (ill === 'staticCling') {
       this.onEmit?.('spark', new THREE.Vector3().setFromMatrixPosition(headM).setY(rs.y + 1.35), 3, dt);
+    }
+    if (ill === 'bubbleTrouble') {
+      const mouth = new THREE.Vector3().setFromMatrixPosition(sub(0, -0.075, 0.3));
+      this.onEmit?.('bubble', mouth, 2.5, dt);
     }
   }
 }

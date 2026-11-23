@@ -27,7 +27,8 @@ import { Characters } from './characters';
 import { Particles, type PKind } from './particles';
 import { Floaters } from './floaters';
 import type { SimEvent } from '../sim/events';
-import { ILLNESSES, ROOMS } from '../sim/catalog';
+import { ILLNESSES, ITEMS, ROOMS } from '../sim/catalog';
+import { LitterView } from './litterView';
 
 const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -39,6 +40,7 @@ export class View {
   readonly chars: Characters;
   readonly particles: Particles;
   readonly floaters: Floaters;
+  readonly litter: LitterView;
   time = 0;
   todOverride: number | null = null;
   weather = { rain: 0, snow: 0, target: 'clear' as 'clear' | 'rain' | 'snow', next: 40 };
@@ -54,12 +56,13 @@ export class View {
     this.chars = new Characters(engine.scene);
     this.particles = new Particles(engine.scene, engine.preset.particles);
     this.floaters = new Floaters(overlay, engine.camera);
+    this.litter = new LitterView(engine.scene);
     engine.rig.onYawStep = (q) => this.building.setQuadrant(q);
     this.building.setQuadrant(engine.rig.quadrant());
     engine.onQualityChange.push(() => this.exterior.setGrass(engine.preset.grass));
     this.items.onEmit = (kind, p, rate, dt) => this.particles.emit(`${kind}:${p.x.toFixed(1)},${p.z.toFixed(1)}`, kind as PKind, p, rate, dt);
     this.items.onLanded = (x, z) => { this.particles.dustRing(x, z, 16, 0.5); this.engine.rig.shake(0.12); };
-    this.chars.onEmit = (kind, p, rate, dt) => this.particles.emit(`c:${kind}:${p.x.toFixed(0)},${p.z.toFixed(0)}`, kind, p, rate, dt, kind === 'snow' ? 0.35 : 0.25);
+    this.chars.onEmit = (kind, p, rate, dt) => this.particles.emit(`c:${kind}:${p.x.toFixed(0)},${p.z.toFixed(0)}`, kind === 'bubble' ? 'soap' : kind, p, rate, dt, kind === 'snow' ? 0.35 : 0.25);
   }
 
   private posOf(id: number) {
@@ -122,6 +125,50 @@ export class View {
             }
           }
           break;
+        case 'broke': {
+          const it = this.world.item(e.itemId);
+          if (it) {
+            const p = new THREE.Vector3(it.x + 1, 0, it.z + 1);
+            this.particles.puff(p, 18);
+            this.floaters.add('Broken!', p.setY(2.4), 'bad', 1.8);
+            this.engine.rig.shake(0.15);
+          }
+          break;
+        }
+        case 'repaired': {
+          const it = this.world.item(e.itemId);
+          if (it) {
+            const p = new THREE.Vector3(it.x + 1, 1.2, it.z + 1);
+            this.particles.sparkleBurst(p, 26, new THREE.Color('#7dffb0'));
+            this.floaters.add('Fixed!', p.setY(2.4), 'cured', 1.5);
+          }
+          break;
+        }
+        case 'cleaned':
+          this.particles.sparkleBurst(new THREE.Vector3(e.x, 0.3, e.z), 8, new THREE.Color('#bff7ff'));
+          break;
+        case 'promoted':
+        case 'trained': {
+          const p = this.posOf(e.id);
+          if (p) {
+            this.particles.sparkleBurst(p.clone().setY(1.6), 30, new THREE.Color('#ffd447'));
+            this.floaters.add(`${'★'.repeat(e.skill)} ${e.type === 'promoted' ? 'Promoted!' : 'Trained!'}`, p.setY(2.5), 'money', 2);
+          }
+          break;
+        }
+        case 'quit': {
+          const p = this.posOf(e.id);
+          if (p) this.floaters.add('I quit!', p.setY(2.3), 'bad', 2);
+          break;
+        }
+        case 'researched': {
+          const lab = this.world.state.rooms.find((r) => r.type === 'research');
+          if (lab) this.particles.sparkleBurst(new THREE.Vector3(lab.rect.x + lab.rect.w / 2, 1.5, lab.rect.z + lab.rect.h / 2), 50, new THREE.Color('#7dffd0'));
+          break;
+        }
+        case 'eventStart':
+          if (e.kind === 'emergency') this.engine.rig.shake(0.3);
+          break;
         case 'sold': {
           const p = new THREE.Vector3(e.x, 0, e.z);
           this.particles.puff(p.clone().setY(-0.5), 20);
@@ -131,6 +178,22 @@ export class View {
         }
       }
     }
+  }
+
+  private echoAcc = 0;
+  /** Echo-itis echoes and exhausted-staff snores. */
+  private moodFloaters(dt: number) {
+    this.echoAcc += dt;
+    if (this.echoAcc < 0.4) return;
+    this.echoAcc = 0;
+    const lines = ['Hello? ...ello? ...lo?', 'I feel fine... fine... ine...', 'Is it me? ...me? ...e?', 'Doctor? ...octor? ...tor?'];
+    for (const p of this.world.state.patients) {
+      if (p.illness === 'echoItis' && !p.cured && Math.random() < 0.06) this.floaters.add(lines[(Math.random() * lines.length) | 0], new THREE.Vector3(p.x, 2.1, p.z), 'echo', 2.6);
+    }
+    for (const st of this.world.state.staff) {
+      if (st.energy < 10 && st.state !== 'onBreak' && Math.random() < 0.08) this.floaters.add('z z z', new THREE.Vector3(st.x, 2.0, st.z), 'snore', 1.8);
+    }
+    void ITEMS;
   }
 
   private updateWeather(dt: number) {
@@ -170,7 +233,9 @@ export class View {
     this.time += dt;
     const tod = this.todOverride ?? timeOfDay(this.world.state.t);
     const night = this.engine.sky.update(tod, this.time);
-    this.exterior.update(dt, this.time, night);
+    this.exterior.update(dt, this.time, night, this.world.state.event?.kind === 'emergency');
+    this.litter.sync(this.world);
+    this.moodFloaters(dt);
     this.building.update(dt, this.world, this.engine.sky.sunDir, this.engine.sky.daylight, night);
     this.items.sync(this.world, this.started);
     this.items.update(dt, this.time, this.world, night);

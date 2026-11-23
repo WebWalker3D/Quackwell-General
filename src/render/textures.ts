@@ -343,7 +343,7 @@ function wallpaper(scale: number) {
 
 export type TexKind =
   | 'corridor' | 'wood' | 'mint' | 'white' | 'lino' | 'rubber' | 'plank' | 'carpet'
-  | 'grass' | 'asphalt' | 'paving' | 'path' | 'brick' | 'wallpaper';
+  | 'grass' | 'asphalt' | 'paving' | 'path' | 'brick' | 'wallpaper' | 'cork' | 'rose';
 
 const cache = new Map<TexKind, TexSet>();
 
@@ -359,6 +359,8 @@ export function tex(kind: TexKind): TexSet {
     case 'wood': t = wood('#c98a52', '#6b3e1c', 8, 2); break;
     case 'plank': t = wood('#e2b27a', '#8a5a2c', 5, 2); break;
     case 'carpet': t = fuzz('#8a63d2', ['#a07ae6', '#6f4cb8', '#9b72e0'], 2); break;
+    case 'cork': t = lino('#c99a6b', ['#a7774a', '#e0b88c', '#8a5a2c'], 2); break;
+    case 'rose': t = fuzz('#f2a7c3', ['#ffc4d9', '#e48aad', '#f7b5cd'], 2); break;
     case 'lino': t = lino('#b8dcf7', ['#ffffff', '#8fc3ea', '#d8ecfb'], 2); break;
     case 'rubber': t = rubber(2); break;
     case 'grass': t = grass(6); break;

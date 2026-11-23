@@ -22,6 +22,7 @@ import { floorMat, glow, glass, matte, metal, plastic, texScale } from './materi
 import { radialTex, tex } from './textures';
 import { fx, windSway, worldMapped } from './shaderfx';
 import type { Preset } from './engine';
+import { bake } from './itemMeshes';
 
 type Rect = { x0: number; z0: number; x1: number; z1: number };
 
@@ -105,7 +106,7 @@ function makeCar(color: string, kind: 'car' | 'van' = 'car'): THREE.Group {
     tl.position.set(-len / 2 + 0.01, 0.5, sz);
     g.add(tl);
   }
-  return shadowed(g, true, false);
+  return bake(shadowed(g, true, false));
 }
 
 function makeAmbulance(): { group: THREE.Group; red: THREE.MeshStandardMaterial; blue: THREE.MeshStandardMaterial } {
@@ -151,7 +152,7 @@ function makeAmbulance(): { group: THREE.Group; red: THREE.MeshStandardMaterial;
     w.position.set(sx, 0.27, sz);
     g.add(w);
   }
-  return { group: shadowed(g, true, false), red, blue };
+  return { group: bake(shadowed(g, true, false), [l1, l2]), red, blue };
 }
 
 // ---------- vegetation ----------
@@ -337,7 +338,7 @@ export class Exterior {
 
     const trunkGeo = new THREE.CylinderGeometry(0.1, 0.17, 1.4, 8);
     trunkGeo.translate(0, 0.7, 0);
-    const blobGeo = new THREE.IcosahedronGeometry(1, 3);
+    const blobGeo = new THREE.IcosahedronGeometry(1, 2);
     const coneGeo = new THREE.ConeGeometry(1, 1.5, 12);
     const foliageMat = new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.6, clearcoat: 0.4, clearcoatRoughness: 0.3, sheen: 0.6, sheenColor: new THREE.Color('#d8ffb0') });
     const coneMat = foliageMat.clone();
@@ -436,8 +437,7 @@ export class Exterior {
       g.add(pole, arm, head, bulb);
       g.position.set(x, 0.08, 33.1);
       shadowed(g, true, false);
-      bulb.castShadow = false;
-      this.group.add(g);
+      this.group.add(bake(g));
       pools.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.1, 33.7), new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), new THREE.Vector3(6, 6, 1)));
     }
     // plaza lamps
@@ -450,7 +450,7 @@ export class Exterior {
       g.add(pole, globe);
       g.position.set(x, 0, 31.2);
       shadowed(g, true, false);
-      this.group.add(g);
+      this.group.add(bake(g));
       pools.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.06, 31.2), new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), new THREE.Vector3(5, 5, 1)));
     }
     if (this.preset.lightPools) {
@@ -587,11 +587,11 @@ export class Exterior {
       g.position.set(x, 0, z);
       g.rotation.y = z > 0 && z < 40 ? (x < 0 ? Math.PI / 2 : -Math.PI / 2) : 0;
       shadowed(g);
-      this.group.add(g);
+      this.group.add(bake(g));
     }
   }
 
-  update(dt: number, time: number, night: number) {
+  update(dt: number, time: number, night: number, alarm = false) {
     for (const c of this.cars) {
       c.x += c.speed * dt;
       if (c.x > 110) c.x = -70;
@@ -599,9 +599,10 @@ export class Exterior {
       c.obj.position.x = c.x;
       c.obj.position.y = Math.abs(Math.sin(time * 9 + c.x)) * 0.015;
     }
-    const phase = Math.floor(time * 3) % 2;
-    this.amb.red.emissiveIntensity = phase ? 9 : 0.4;
-    this.amb.blue.emissiveIntensity = phase ? 0.4 : 9;
+    const phase = Math.floor(time * (alarm ? 8 : 3)) % 2;
+    const peak = alarm ? 16 : 9;
+    this.amb.red.emissiveIntensity = phase ? peak : 0.4;
+    this.amb.blue.emissiveIntensity = phase ? 0.4 : peak;
     this.lampMat.emissiveIntensity = night * 9;
     this.poolMat.opacity = night * 0.55;
     this.windowMat.emissiveIntensity = night * 3.5;

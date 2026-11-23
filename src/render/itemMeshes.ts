@@ -33,7 +33,7 @@ export interface AnimState {
 export type Animate = (t: number, dt: number, s: AnimState) => void;
 
 export interface Emitter {
-  kind: 'steam' | 'spark' | 'bubble' | 'drip';
+  kind: 'steam' | 'spark' | 'bubble' | 'drip' | 'smoke';
   at: THREE.Vector3;
   rate: number;
   whenActive: boolean;
@@ -64,7 +64,7 @@ function sph(r: number, m: Mat, x = 0, y = 0, z = 0, seg = 18) {
 }
 
 /** Merge all static meshes under root by material; animated parts listed in `keep` stay live. */
-function bake(root: THREE.Group, keep: THREE.Object3D[] = []): THREE.Group {
+export function bake(root: THREE.Group, keep: THREE.Object3D[] = []): THREE.Group {
   const keepSet = new Set<THREE.Object3D>();
   for (const k of keep) k.traverse((o) => keepSet.add(o));
   root.updateMatrixWorld(true);
@@ -745,22 +745,175 @@ function saunaBench(): Built {
   return { root: bake(g) };
 }
 
-/** stand-in until a dedicated model exists */
-function placeholder(type: ItemType): Built {
+
+function sofa(): Built {
   const g = new THREE.Group();
-  g.add(rbox(0.8, 0.8, 0.8, 0.1, C.grey, 0, 0.4, 0));
-  g.userData.placeholder = type;
+  const fab = plastic('#ff8a5c', 0.75, 0.15);
+  g.add(rbox(1.92, 0.3, 0.7, 0.12, fab, 0, 0.32, -0.02));
+  g.add(rbox(1.92, 0.55, 0.22, 0.1, fab, 0, 0.6, -0.36));
+  for (const x of [-0.9, 0.9]) g.add(rbox(0.18, 0.45, 0.72, 0.08, fab, x, 0.45, -0.02));
+  for (const x of [-0.45, 0.45]) g.add(rbox(0.86, 0.12, 0.6, 0.06, plastic('#ffb08a', 0.8, 0.1), x, 0.5, 0.02));
+  for (const x of [-0.85, 0.85]) for (const z of [-0.3, 0.25]) g.add(cyl(0.03, 0.03, 0.17, C.dark, x, 0.085, z, 8));
+  g.add(rbox(0.3, 0.3, 0.12, 0.06, plastic('#7b61ff', 0.6, 0.2), -0.6, 0.72, -0.2).rotateZ(0.2));
   return { root: bake(g) };
 }
 
-const BUILDERS: Partial<Record<ItemType, () => Built>> = {
+function coffeeMachine(): Built {
+  const g = new THREE.Group();
+  g.add(rbox(0.7, 0.9, 0.55, 0.05, wood('#b07a48'), 0, 0.45, -0.15));
+  g.add(rbox(0.5, 0.55, 0.4, 0.06, metal('#c7ced8', 0.2), 0, 1.18, -0.18));
+  g.add(rbox(0.3, 0.12, 0.08, 0.03, C.dark, 0, 1.3, 0.03));
+  const light = sph(0.025, glow('#ff4060', 3).clone(), 0.17, 1.35, 0.03, 8);
+  g.add(light);
+  g.add(cyl(0.05, 0.04, 0.09, C.white, 0, 0.95, -0.02, 12));
+  for (let i = 0; i < 3; i++) g.add(cyl(0.045, 0.04, 0.09, plastic(['#ffc93c', '#2fb8a6', '#ff5c8a'][i], 0.3, 0.9), -0.22 + i * 0.07, 0.95, 0.1, 10));
+  bake(g, [light]);
+  return { root: g, emitters: [{ kind: 'steam', at: new THREE.Vector3(0, 1.05, 0), rate: 1.2, whenActive: false }] };
+}
+
+function lectern(): Built {
+  const g = new THREE.Group();
+  g.add(cyl(0.22, 0.26, 0.05, wood('#8a5a2c'), 0, 0.025, 0, 16));
+  g.add(rbox(0.35, 1.0, 0.3, 0.04, wood('#c98a52'), 0, 0.55, -0.05));
+  const top = rbox(0.6, 0.05, 0.45, 0.02, wood('#8a5a2c'), 0, 1.1, 0);
+  top.rotation.x = 0.35;
+  g.add(top);
+  g.add(box(0.36, 0.02, 0.26, matte('#ffffff', 0.9), 0, 1.14, 0.02).rotateX(0.35));
+  g.add(cyl(0.012, 0.012, 0.25, C.dark, 0.18, 1.25, -0.1, 6).rotateX(-0.5));
+  g.add(sph(0.035, C.dark, 0.18, 1.36, -0.16, 8));
+  return { root: bake(g) };
+}
+
+function studyDesk(): Built {
+  const g = new THREE.Group();
+  // desk on the back cell (z -1..0), chair on the front cell
+  g.add(rbox(0.9, 0.06, 0.7, 0.02, wood('#e2b27a'), 0, 0.72, -0.5));
+  for (const x of [-0.4, 0.4]) g.add(box(0.05, 0.7, 0.6, C.steel, x, 0.35, -0.5));
+  g.add(box(0.32, 0.05, 0.24, plastic('#4f7cff', 0.5, 0.3), -0.15, 0.78, -0.45));
+  g.add(box(0.3, 0.05, 0.22, plastic('#ffc93c', 0.5, 0.3), -0.13, 0.83, -0.47));
+  g.add(cyl(0.012, 0.012, 0.18, plastic('#ff5c8a', 0.3, 0.8), 0.2, 0.76, -0.4, 6).rotateZ(Math.PI / 2));
+  g.add(chair(plastic('#4f7cff', 0.4, 0.6), 0, 0.45, Math.PI));
+  return { root: bake(g) };
+}
+
+function researchBench(): Built {
+  const g = new THREE.Group();
+  g.add(rbox(1.9, 0.9, 0.8, 0.06, C.white, 0, 0.45, -0.5));
+  g.add(rbox(1.96, 0.06, 0.88, 0.03, plastic('#20c997', 0.3, 0.8), 0, 0.92, -0.5));
+  // microscope
+  g.add(cyl(0.1, 0.12, 0.04, C.dark, -0.6, 0.97, -0.55, 14));
+  g.add(cyl(0.03, 0.03, 0.35, C.dark, -0.6, 1.15, -0.62, 8).rotateX(0.3));
+  g.add(cyl(0.045, 0.035, 0.18, C.white, -0.6, 1.33, -0.55, 10).rotateX(-0.4));
+  // flasks with glowing liquids
+  const glows: THREE.Mesh[] = [];
+  [['#ff4fd8', -0.1], ['#4ff0d0', 0.2], ['#ffd447', 0.5]].forEach(([c, x], i) => {
+    g.add(sph(0.11, glass('#ffffff', 0.3), x as number, 1.06, -0.55, 16));
+    const liq = sph(0.09, glow(c as string, 2.5).clone(), x as number, 1.04, -0.55, 12);
+    g.add(liq);
+    glows.push(liq);
+    g.add(cyl(0.03, 0.03, 0.14, glass('#ffffff', 0.3), x as number, 1.2, -0.55, 8));
+    void i;
+  });
+  // tube rack
+  for (let i = 0; i < 5; i++) g.add(cyl(0.02, 0.02, 0.16, glow(['#7dffb0', '#ff8a3d', '#5fc8ff', '#c77dff', '#ffd447'][i], 1.6), 0.72 + (i % 3) * 0.06, 1.03, -0.7 + Math.floor(i / 3) * 0.08, 6));
+  g.add(rbox(0.5, 0.36, 0.05, 0.03, C.dark, 0.75, 1.32, -0.85));
+  g.add(box(0.44, 0.3, 0.01, screenMat(), 0.75, 1.32, -0.82));
+  bake(g, glows);
+  return {
+    root: g,
+    animate: (t, _dt, s) => glows.forEach((m, i) => { (m.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.6 + s.level * (2 + Math.sin(t * 6 + i * 2) * 1.5); }),
+    emitters: [{ kind: 'bubble', at: new THREE.Vector3(0.2, 1.3, -0.55), rate: 4, whenActive: true }],
+  };
+}
+
+function psychCouch(): Built {
+  const g = new THREE.Group();
+  const leather = plastic('#a0325a', 0.45, 0.6);
+  g.add(rbox(1.9, 0.32, 0.72, 0.12, leather, 0, 0.36, 0));
+  g.add(rbox(0.5, 0.42, 0.72, 0.16, leather, 0.72, 0.58, 0).rotateZ(-0.35));
+  g.add(rbox(0.36, 0.1, 0.5, 0.05, plastic('#ffd6e6', 0.8, 0.1), 0.62, 0.6, 0));
+  for (const x of [-0.85, 0.85]) for (const z of [-0.3, 0.3]) g.add(cyl(0.035, 0.025, 0.2, wood('#6b3e1c'), x, 0.1, z, 8));
+  return { root: bake(g) };
+}
+
+function armchair(): Built {
+  const g = new THREE.Group();
+  const fab = plastic('#5b4a8a', 0.7, 0.2);
+  g.add(rbox(0.82, 0.3, 0.75, 0.12, fab, 0, 0.32, 0.02));
+  g.add(rbox(0.82, 0.75, 0.2, 0.1, fab, 0, 0.62, -0.32));
+  for (const x of [-0.38, 0.38]) g.add(rbox(0.16, 0.42, 0.72, 0.08, fab, x, 0.52, 0.02));
+  g.add(rbox(0.5, 0.1, 0.5, 0.05, plastic('#7d6bb8', 0.8, 0.1), 0, 0.5, 0.06));
+  // side table with a notepad and a tissue box
+  g.add(cyl(0.16, 0.16, 0.03, wood('#c98a52'), 0.55, 0.62, 0.35, 14));
+  g.add(cyl(0.02, 0.02, 0.6, wood('#8a5a2c'), 0.55, 0.31, 0.35, 6));
+  g.add(rbox(0.12, 0.08, 0.1, 0.02, C.white, 0.52, 0.68, 0.35));
+  return { root: bake(g) };
+}
+
+function arcade(): Built {
+  const g = new THREE.Group();
+  g.add(rbox(0.8, 1.75, 0.7, 0.06, plastic('#3b2a8a', 0.3, 0.9), 0, 0.875, -0.1));
+  const scr = rbox(0.6, 0.5, 0.04, 0.03, glow('#2ad0ff', 1.6).clone(), 0, 1.3, 0.26);
+  scr.rotation.x = -0.25;
+  g.add(scr);
+  const marquee = rbox(0.72, 0.18, 0.06, 0.03, glow('#ff4fd8', 3).clone(), 0, 1.68, 0.24);
+  g.add(marquee);
+  g.add(rbox(0.74, 0.08, 0.3, 0.03, C.dark, 0, 0.98, 0.32));
+  const stick = sph(0.04, C.coral, -0.15, 1.08, 0.33, 10);
+  g.add(stick, cyl(0.01, 0.01, 0.08, C.dark, -0.15, 1.03, 0.33, 6));
+  const btns: THREE.Mesh[] = [];
+  for (let i = 0; i < 3; i++) {
+    const b = sph(0.03, glow(['#ffd447', '#40ff9a', '#ff4060'][i], 2.5).clone(), 0.05 + i * 0.09, 1.03, 0.34, 8);
+    g.add(b);
+    btns.push(b);
+  }
+  bake(g, [scr, marquee, ...btns]);
+  const sm = scr.material as THREE.MeshStandardMaterial, mm = marquee.material as THREE.MeshStandardMaterial;
+  return {
+    root: g,
+    animate: (t) => {
+      sm.emissive.setHSL((t * 0.2) % 1, 0.8, 0.55);
+      sm.emissiveIntensity = 1.4 + Math.sin(t * 9) * 0.4;
+      mm.emissiveIntensity = Math.sin(t * 5) > 0 ? 3.5 : 1.5;
+      btns.forEach((b, i) => ((b.material as THREE.MeshStandardMaterial).emissiveIntensity = Math.sin(t * 7 + i * 2) > 0.3 ? 3 : 0.4));
+    },
+  };
+}
+
+function duckStatue(): Built {
+  const g = new THREE.Group();
+  const gold = new THREE.MeshPhysicalMaterial({ color: '#ffc93c', metalness: 1, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05 });
+  g.add(rbox(1.6, 0.4, 1.6, 0.12, plastic('#e9e2d6', 0.6, 0.3), 0, 0.2, 0));
+  g.add(rbox(1.3, 0.35, 1.3, 0.1, plastic('#f4efe6', 0.5, 0.4), 0, 0.57, 0));
+  const duck = new THREE.Group();
+  const body = sph(0.48, gold, 0, 0.45, 0, 32);
+  body.scale.set(1.15, 0.85, 0.95);
+  const head = sph(0.3, gold, 0.36, 0.98, 0, 28);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 16), plastic('#ff8a3d', 0.3, 0.9));
+  beak.rotation.z = -Math.PI / 2;
+  beak.position.set(0.72, 0.95, 0);
+  beak.scale.set(1, 1, 0.6);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.36, 12), gold);
+  tail.rotation.z = Math.PI / 2 + 0.6;
+  tail.position.set(-0.55, 0.6, 0);
+  duck.add(body, head, beak, tail);
+  for (const z of [-0.13, 0.13]) duck.add(sph(0.045, C.black, 0.55, 1.05, z, 10));
+  duck.position.y = 0.75;
+  duck.rotation.y = Math.PI / 4;
+  g.add(duck);
+  bake(g, [duck]);
+  return { root: g, animate: (t) => { duck.rotation.y = Math.PI / 4 + Math.sin(t * 0.6) * 0.25; } };
+}
+
+const BUILDERS: Record<ItemType, () => Built> = {
   reception, bench, vending, cooler, plant, radiator, bin, lamp, cabinet,
   gpDesk, pharmacyCounter, scanner, controlPanel, bed, nurseStation,
   ballastBooth, teslaCoil, groundPad, saunaStove, saunaBench,
+  sofa, coffeeMachine, lectern, studyDesk, researchBench, psychCouch, armchair, arcade, duckStatue,
 };
 
 export function buildItemMesh(type: ItemType): THREE.Group {
-  const b = BUILDERS[type]?.() ?? placeholder(type);
+  const b = BUILDERS[type]();
   b.root.userData.animate = b.animate;
   b.root.userData.emitters = b.emitters ?? [];
   b.root.userData.type = type;

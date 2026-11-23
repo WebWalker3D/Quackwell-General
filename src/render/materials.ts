@@ -29,7 +29,7 @@ function memo<T extends THREE.Material>(key: string, make: () => T): T {
 
 const FLOOR_ROUGH: Record<string, number> = {
   corridor: 0.22, mint: 0.25, white: 0.12, wood: 0.38, plank: 0.55, carpet: 0.95, lino: 0.32, rubber: 0.8,
-  grass: 0.95, asphalt: 0.85, paving: 0.75, path: 0.8,
+  grass: 0.95, asphalt: 0.85, paving: 0.75, path: 0.8, cork: 0.7, rose: 0.95,
 };
 
 /** Textured floor/ground material. Geometry UVs must be world xz / texture scale. */

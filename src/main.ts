@@ -37,6 +37,8 @@ import { Ghost } from './render/ghost';
 import { Input } from './ui/input';
 import { Hud } from './ui/hud';
 import { Sfx } from './audio/sfx';
+import { startEmergency, startInspection } from './sim/happenings';
+import { dropLitter } from './sim/janitor';
 
 const params = new URLSearchParams(location.search);
 const app = document.getElementById('app')!;
@@ -47,6 +49,15 @@ const overlay = document.createElement('div');
 overlay.id = 'overlay';
 document.body.appendChild(overlay);
 const view = new View(engine, world, overlay);
+if (params.get('event') === 'emergency') startEmergency(world, 'chromaticFlu', 6);
+if (params.get('event') === 'inspection') startInspection(world);
+if (params.has('mess')) {
+  for (let i = 0; i < 14; i++) dropLitter(world, 14 + Math.random() * 18, 13 + Math.random() * 12, (['can', 'wrapper', 'puddle'] as const)[i % 3]);
+  const m = world.state.items.find((it) => it.type === 'teslaCoil');
+  if (m) { m.broken = true; m.wear = 100; }
+  const c = world.state.candidates.find((x) => x.role === 'janitor');
+  if (c) world.cmd({ type: 'hire', candidateId: c.id });
+}
 if (params.has('grass')) view.exterior.setGrass(Number(params.get('grass')));
 if (params.has('shadow')) engine.sky.configureShadow(Number(params.get('shadow')));
 if (params.has('weather')) view.weatherOverride = params.get('weather') as 'rain';

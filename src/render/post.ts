@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import {
   EffectComposer, RenderPass, EffectPass, BloomEffect, TiltShiftEffect, ToneMappingEffect, ToneMappingMode,
-  HueSaturationEffect, BrightnessContrastEffect, VignetteEffect, NoiseEffect, SMAAEffect, SMAAPreset, KernelSize, BlendFunction,
+  HueSaturationEffect, BrightnessContrastEffect, VignetteEffect, NoiseEffect, SMAAEffect, SMAAPreset, KernelSize, BlendFunction, type Effect,
 } from 'postprocessing';
 // @ts-expect-error n8ao ships without type declarations
 import { N8AOPostPass } from 'n8ao';
@@ -58,7 +58,7 @@ export function buildPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, cam
   }
   let bloom: BloomEffect | null = null;
   if (p.bloom) {
-    bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 1.35, luminanceSmoothing: 0.35, intensity: 1.2, radius: 0.7, levels: 7 });
+    bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 1.35, luminanceSmoothing: 0.35, intensity: 1.2, radius: 0.7, levels: p.ao === 'full' ? 7 : 5 });
     composer.addPass(new EffectPass(camera, bloom));
   }
   let tilt: TiltShiftEffect | null = null;
@@ -72,9 +72,11 @@ export function buildPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, cam
   const vig = new VignetteEffect({ darkness: 0.42, offset: 0.32 });
   const noise = new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: false });
   noise.blendMode.opacity.value = 0.05;
-  composer.addPass(off.has('grade') ? new EffectPass(camera, tone) : new EffectPass(camera, tone, sat, bc));
-  if (p.smaa) composer.addPass(new EffectPass(camera, new SMAAEffect({ preset: SMAAPreset.HIGH })));
-  if (!off.has('vig')) composer.addPass(new EffectPass(camera, vig, noise));
+  // grading, vignette and grain share one pass; SMAA runs last on the final LDR image
+  const grade: Effect[] = off.has('grade') ? [tone] : [tone, sat, bc];
+  if (!off.has('vig')) grade.push(vig, noise);
+  composer.addPass(new EffectPass(camera, ...grade));
+  if (p.smaa) composer.addPass(new EffectPass(camera, new SMAAEffect({ preset: p.ao === 'full' ? SMAAPreset.HIGH : SMAAPreset.MEDIUM })));
   return {
     composer, bloom, tilt, ao,
     dispose() { composer.dispose(); },

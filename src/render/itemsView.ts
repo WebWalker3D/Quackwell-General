@@ -108,7 +108,13 @@ export class ItemsView {
     for (const it of world.state.items) {
       const rec = this.recs.get(it.id);
       if (!rec) continue;
-      const active = it.roomId !== -1 ? busyRooms.has(it.roomId) : it.claims.some((c) => c !== -1 && world.patient(c)?.state === 'atVending');
+      const busy = it.roomId !== -1 ? busyRooms.has(it.roomId) || (it.type === 'researchBench' && !!world.state.research.current && world.room(it.roomId)?.staffId !== -1) : it.claims.some((c) => c !== -1 && world.patient(c)?.state === 'atVending');
+      const active = busy && !it.broken;
+      if (it.broken && this.onEmit) {
+        this.tmp.set(rec.obj.position.x, 1.3, rec.obj.position.z);
+        this.onEmit('smoke', this.tmp, 3, dt);
+        this.onEmit('spark', this.tmp.setY(1.0), 2.5, dt);
+      }
       rec.state.active = active;
       rec.state.night = night;
       rec.state.level += ((active ? 1 : 0) - rec.state.level) * (1 - Math.exp(-4 * dt));

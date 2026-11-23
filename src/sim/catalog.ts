@@ -28,7 +28,7 @@ export type ItemType =
 export type IllnessType =
   | 'heliumLungs' | 'chromaticFlu' | 'staticCling' | 'jellylegs' | 'glowbelly' | 'frostbiteFever'
   | 'bubbleTrouble' | 'echoItis' | 'backwardsWalking' | 'ghosting';
-export type FloorKind = 'corridor' | 'wood' | 'mint' | 'white' | 'lino' | 'rubber' | 'plank' | 'carpet';
+export type FloorKind = 'corridor' | 'wood' | 'mint' | 'white' | 'lino' | 'rubber' | 'plank' | 'carpet' | 'cork' | 'rose';
 export type Pose = 'stand' | 'sit' | 'lie' | 'work';
 
 /**
@@ -282,7 +282,7 @@ export const ROOMS: Record<RoomType, RoomDef> = {
     desc: 'Steams Frostbite Fever right out of the bones.',
   },
   staffRoom: {
-    name: 'Staff Room', minW: 3, minH: 3, staff: null, required: ['sofa', 'coffeeMachine'], floor: 'carpet', wall: '#ffe1c7', accent: '#ff8a5c',
+    name: 'Staff Room', minW: 3, minH: 3, staff: null, required: ['sofa', 'coffeeMachine'], floor: 'cork', wall: '#ffe1c7', accent: '#ff8a5c',
     baseCost: 3000, tileCost: 120, service: 'none', duration: 0, fee: 0, icon: '☕',
     desc: 'Tired staff recharge here. Without one they slow down and eventually quit.',
   },
@@ -297,7 +297,7 @@ export const ROOMS: Record<RoomType, RoomDef> = {
     desc: 'A doctor here works through research projects: new rooms, items and upgrades.',
   },
   psych: {
-    name: 'Psychiatry', minW: 4, minH: 4, staff: 'doctor', required: ['psychCouch', 'armchair'], floor: 'carpet', wall: '#ffe3ef', accent: '#e05297',
+    name: 'Psychiatry', minW: 4, minH: 4, staff: 'doctor', required: ['psychCouch', 'armchair'], floor: 'rose', wall: '#ffe3ef', accent: '#e05297',
     baseCost: 7000, tileCost: 180, service: 'treat', duration: 16, fee: 0, icon: '🛋️', unlock: 'psychiatry',
     desc: 'Talks Echo-itis and Backwards Walking out of people.',
   },

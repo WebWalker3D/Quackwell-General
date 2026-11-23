@@ -161,9 +161,15 @@ export class Engine {
     }
   }
 
+  private frameNo = 0;
+
   render(dt: number) {
     this.adapt(dt);
     this.rig.update(dt);
+    // below Ultra, refresh the shadow map every other frame: moving shadows at 30 Hz are hard to spot
+    const sm = this.renderer.shadowMap;
+    sm.autoUpdate = false;
+    sm.needsUpdate = this.quality === 'ultra' || this.frameNo++ % 2 === 0;
     this.post.composer.render(dt);
   }
 }
