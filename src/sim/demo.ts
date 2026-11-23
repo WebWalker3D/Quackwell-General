@@ -1,0 +1,71 @@
+import { World } from './world';
+import { createState } from './state';
+import type { Role, IllnessType } from './catalog';
+import type { Command } from './events';
+
+/** A fully built, staffed, busy hospital for screenshots and the title screen. */
+export function createDemoWorld(seed = 11, warmup = 45): World {
+  const s = createState(seed);
+  s.money = 2_000_000;
+  s.t = 15;
+  const w = new World(s);
+  const cmds: Command[] = [
+    { type: 'buildRoom', room: 'gp', rect: { x: 8, z: 6, w: 4, h: 4 }, door: { x: 10, z: 9, dir: 'S' } },
+    { type: 'buildRoom', room: 'gp', rect: { x: 12, z: 6, w: 4, h: 4 }, door: { x: 13, z: 9, dir: 'S' } },
+    { type: 'buildRoom', room: 'scan', rect: { x: 16, z: 6, w: 5, h: 4 }, door: { x: 18, z: 9, dir: 'S' } },
+    { type: 'buildRoom', room: 'ward', rect: { x: 21, z: 6, w: 6, h: 4 }, door: { x: 23, z: 9, dir: 'S' } },
+    { type: 'buildRoom', room: 'ballast', rect: { x: 27, z: 6, w: 4, h: 4 }, door: { x: 28, z: 9, dir: 'S' } },
+    { type: 'buildRoom', room: 'grounding', rect: { x: 31, z: 6, w: 5, h: 4 }, door: { x: 33, z: 9, dir: 'S' } },
+    { type: 'buildRoom', room: 'pharmacy', rect: { x: 8, z: 13, w: 4, h: 4 }, door: { x: 11, z: 14, dir: 'E' } },
+    { type: 'buildRoom', room: 'sauna', rect: { x: 8, z: 19, w: 4, h: 4 }, door: { x: 11, z: 20, dir: 'E' } },
+    { type: 'buildRoom', room: 'pharmacy', rect: { x: 32, z: 13, w: 4, h: 4 }, door: { x: 32, z: 14, dir: 'W' } },
+    { type: 'placeItem', item: 'reception', x: 20, z: 19, rot: 0 },
+    { type: 'placeItem', item: 'bench', x: 14, z: 12, rot: 2 },
+    { type: 'placeItem', item: 'bench', x: 18, z: 12, rot: 2 },
+    { type: 'placeItem', item: 'bench', x: 25, z: 12, rot: 2 },
+    { type: 'placeItem', item: 'bench', x: 29, z: 12, rot: 2 },
+    { type: 'placeItem', item: 'bench', x: 14, z: 16, rot: 1 },
+    { type: 'placeItem', item: 'bench', x: 29, z: 16, rot: 3 },
+    { type: 'placeItem', item: 'vending', x: 35, z: 20, rot: 1 },
+    { type: 'placeItem', item: 'vending', x: 8, z: 25, rot: 3 },
+    { type: 'placeItem', item: 'cooler', x: 35, z: 22, rot: 1 },
+    { type: 'placeItem', item: 'plant', x: 16, z: 12, rot: 0 },
+    { type: 'placeItem', item: 'plant', x: 27, z: 12, rot: 0 },
+    { type: 'placeItem', item: 'plant', x: 19, z: 26, rot: 0 },
+    { type: 'placeItem', item: 'plant', x: 24, z: 26, rot: 0 },
+    { type: 'placeItem', item: 'plant', x: 12, z: 26, rot: 0 },
+    { type: 'placeItem', item: 'plant', x: 31, z: 26, rot: 0 },
+    { type: 'placeItem', item: 'lamp', x: 18, z: 19, rot: 0 },
+    { type: 'placeItem', item: 'lamp', x: 24, z: 19, rot: 0 },
+    { type: 'placeItem', item: 'radiator', x: 8, z: 11, rot: 3 },
+    { type: 'placeItem', item: 'radiator', x: 35, z: 11, rot: 1 },
+    { type: 'placeItem', item: 'bin', x: 17, z: 12, rot: 0 },
+    { type: 'placeItem', item: 'bench', x: 14, z: 23, rot: 1 },
+    { type: 'placeItem', item: 'bench', x: 29, z: 23, rot: 3 },
+  ];
+  for (const c of cmds) {
+    const r = w.cmd(c);
+    if (!r.ok) throw new Error(`demo: ${JSON.stringify(c)} failed: ${r.reason}`);
+  }
+  const hires: [Role, number][] = [
+    ['assistant', 1], ['doctor', 5], ['nurse', 4],
+  ];
+  for (const [role, n] of hires) {
+    for (let i = 0; i < n; i++) {
+      const cand = w.state.candidates.find((c) => c.role === role)!;
+      w.cmd({ type: 'hire', candidateId: cand.id });
+    }
+  }
+  // drop staff straight inside so the demo is busy immediately
+  for (const st of w.state.staff) { st.x = 21.5 + (st.id % 3); st.z = 25.5; st.px = st.x; st.pz = st.z; }
+  const ills: IllnessType[] = ['heliumLungs', 'chromaticFlu', 'staticCling', 'jellylegs', 'glowbelly', 'frostbiteFever'];
+  for (let i = 0; i < 14; i++) {
+    const p = w.spawnPatient(ills[i % ills.length], { at: { x: 18.5 + (i % 7), z: 24.5 + Math.floor(i / 7) } });
+    if (i % 2 === 0) { p.gpVisits = 1; p.certainty = 0.9; p.diagnosed = true; }
+  }
+  for (let t = 0; t < warmup; t += 1 / 30) {
+    w.tick(1 / 30);
+    w.drainEvents();
+  }
+  return w;
+}

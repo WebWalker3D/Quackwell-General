@@ -1,0 +1,211 @@
+import { ITEMS, ROLES, ROOMS, type Role } from './catalog';
+import { itemSpots } from './build';
+import { salaryFor } from './economy';
+import { goTo, hop, moving, spotOf, step, stop } from './move';
+import { randomName, TRAITS } from './names';
+import { int, pick, rand, range } from './rng';
+import type { Item, Mover, Room, Staff } from './state';
+import type { CommandResult } from './events';
+import type { World } from './world';
+
+export const HIRE_ROLES: Role[] = ['doctor', 'nurse', 'assistant'];
+const PER_ROLE = 3;
+export const EXIT = { x: 0.5, z: 33.5 };
+
+function rollSkill(w: World) {
+  const r = rand(w.state.rng);
+  return r < 0.35 ? 1 : r < 0.65 ? 2 : r < 0.85 ? 3 : r < 0.95 ? 4 : 5;
+}
+
+export function genCandidates(w: World) {
+  const s = w.state;
+  s.candidates = [];
+  for (const role of HIRE_ROLES) for (let i = 0; i < PER_ROLE; i++) s.candidates.push(newCandidate(w, role));
+}
+
+function newCandidate(w: World, role: Role) {
+  const s = w.state;
+  const skill = rollSkill(w);
+  return {
+    id: s.nextId++, role, name: randomName(s.rng), skill,
+    salary: salaryFor(role, skill), trait: pick(s.rng, TRAITS), look: int(s.rng, 0, 1 << 20),
+  };
+}
+
+export function signingBonus(salary: number) {
+  return Math.round(salary * 0.25);
+}
+
+export function hireCandidate(w: World, candidateId: number): CommandResult {
+  const s = w.state;
+  const c = s.candidates.find((x) => x.id === candidateId);
+  if (!c) return { ok: false, reason: 'no such candidate' };
+  const salary = salaryFor(c.role, c.skill);
+  const bonus = signingBonus(salary);
+  if (s.money < bonus) return { ok: false, reason: 'not enough money' };
+  s.money -= bonus;
+  s.stats.spent += bonus;
+  s.monthStats.spent += bonus;
+  const x = 21.5 + range(s.rng, -1, 2), z = 33.5;
+  const st: Staff = {
+    id: s.nextId++, x, z, px: x, pz: z, face: Math.PI, path: [], pathI: 0, dest: null, pathVer: 0,
+    speed: c.trait === 'Speedy' ? 2.4 : 2.0, pose: 'stand', spot: null, name: c.name, look: c.look,
+    role: c.role, skill: c.skill, salary, trait: c.trait, state: 'idle', post: -1, busy: false, hiredAt: s.t,
+  };
+  s.staff.push(st);
+  s.candidates = s.candidates.filter((x) => x.id !== candidateId);
+  s.candidates.push(newCandidate(w, c.role));
+  w.emit({ type: 'hired', id: st.id });
+  return { ok: true, id: st.id };
+}
+
+export function fireStaff(w: World, id: number): CommandResult {
+  const st = w.staffById(id);
+  if (!st || st.state === 'leaving') return { ok: false, reason: 'no such staff' };
+  unpost(w, st);
+  st.state = 'leaving';
+  goTo(w.grid, st, EXIT.x, EXIT.z);
+  w.emit({ type: 'fired', id });
+  return { ok: true, id };
+}
+
+/** The item + spot index a room's staff member works at. */
+export function staffSpotOf(w: World, room: Room): { item: Item; idx: number } | null {
+  for (const iid of room.items) {
+    const it = w.item(iid);
+    if (!it) continue;
+    const idx = ITEMS[it.type].spots.findIndex((sp) => sp.kind === 'staff');
+    if (idx >= 0) return { item: it, idx };
+  }
+  return null;
+}
+
+export function releaseSpot(w: World, m: Mover) {
+  if (!m.spot) return;
+  const it = w.item(m.spot.item);
+  if (it) {
+    if (it.claims[m.spot.idx] === m.id) it.claims[m.spot.idx] = -1;
+    const sp = itemSpots(it)[m.spot.idx];
+    if (m.pose !== 'stand' || (Math.abs(m.x - sp.x) < 0.05 && Math.abs(m.z - sp.z) < 0.05)) {
+      m.x = sp.ax;
+      m.z = sp.az;
+    }
+  }
+  m.spot = null;
+  m.pose = 'stand';
+}
+
+function unpost(w: World, st: Staff) {
+  if (st.post >= 0) {
+    const room = w.room(st.post);
+    if (room && room.staffId === st.id) room.staffId = -1;
+  }
+  releaseSpot(w, st);
+  st.post = -1;
+  st.busy = false;
+  stop(st);
+}
+
+/** Free any staff working in a room or at an item that is about to disappear. */
+export function releaseStaffFrom(w: World, what: { room?: Room; item?: Item }) {
+  for (const st of w.state.staff) {
+    const inRoom = what.room && st.post === what.room.id;
+    const atItem = what.item && st.spot?.item === what.item.id;
+    const roomItem = what.room && st.spot && what.room.items.includes(st.spot.item);
+    if (inRoom || atItem || roomItem) {
+      unpost(w, st);
+      if (st.state !== 'leaving') st.state = 'idle';
+    }
+  }
+}
+
+function findPost(w: World, st: Staff): { room: Room | null; item: Item; idx: number } | null {
+  let best: { room: Room | null; item: Item; idx: number } | null = null;
+  let bestD = Infinity;
+  const consider = (room: Room | null, item: Item, idx: number) => {
+    const sp = itemSpots(item)[idx];
+    const d = Math.abs(sp.ax - st.x) + Math.abs(sp.az - st.z);
+    if (d < bestD) { bestD = d; best = { room, item, idx }; }
+  };
+  if (st.role === 'assistant') {
+    for (const it of w.state.items) {
+      if (it.type !== 'reception') continue;
+      const idx = ITEMS.reception.spots.findIndex((s) => s.kind === 'staff');
+      if (it.claims[idx] === -1) consider(null, it, idx);
+    }
+  }
+  for (const room of w.state.rooms) {
+    if (room.staffId !== -1 || ROOMS[room.type].staff !== st.role) continue;
+    const ss = staffSpotOf(w, room);
+    if (ss && ss.item.claims[ss.idx] === -1) consider(room, ss.item, ss.idx);
+  }
+  return best;
+}
+
+export function updateStaff(w: World, dt: number) {
+  const s = w.state;
+  for (const st of s.staff) {
+    switch (st.state) {
+      case 'idle': {
+        const post = findPost(w, st);
+        if (post) {
+          if (post.room) post.room.staffId = st.id;
+          post.item.claims[post.idx] = st.id;
+          st.spot = { item: post.item.id, idx: post.idx };
+          st.post = post.room ? post.room.id : -post.item.id - 1;
+          const sp = spotOf(post.item, post.idx);
+          if (goTo(w.grid, st, sp.ax, sp.az)) {
+            st.state = 'toPost';
+          } else {
+            unpost(w, st);
+          }
+          break;
+        }
+        if (!moving(st)) {
+          if (rand(s.rng) < dt * 0.25) wander(w, st);
+        } else step(w.grid, st, dt * 0.6);
+        break;
+      }
+      case 'toPost': {
+        if (!st.spot) { st.state = 'idle'; break; }
+        const it = w.item(st.spot.item);
+        if (!it) { unpost(w, st); st.state = 'idle'; break; }
+        if (step(w.grid, st, dt)) {
+          hop(st, spotOf(it, st.spot.idx));
+          st.state = 'atPost';
+        }
+        break;
+      }
+      case 'atPost':
+        break;
+      case 'leaving':
+        if (step(w.grid, st, dt) || !st.dest) st.post = -2;
+        break;
+    }
+  }
+  s.staff = s.staff.filter((st) => !(st.state === 'leaving' && st.post === -2));
+}
+
+function wander(w: World, st: Staff) {
+  const g = w.grid;
+  const b = g.building;
+  for (let i = 0; i < 8; i++) {
+    const x = b.x + int(w.state.rng, 0, b.w - 1);
+    const z = b.z + int(w.state.rng, 0, b.h - 1);
+    if (g.isCorridor(x, z) && !g.isBlocked(x, z) && Math.abs(x - st.x) + Math.abs(z - st.z) < 10) {
+      goTo(g, st, x + 0.5, z + 0.5);
+      return;
+    }
+  }
+}
+
+/** Is a room's staff member present and working? */
+export function staffed(w: World, room: Room): Staff | null {
+  if (room.staffId === -1) return null;
+  const st = w.staffById(room.staffId);
+  return st && st.state === 'atPost' ? st : null;
+}
+
+export function roleName(role: Role) {
+  return ROLES[role].name;
+}

@@ -219,15 +219,17 @@ export interface IllnessDef {
   difficulty: number;
   desc: string;
   weight: number;
+  /** month index from which this illness starts turning up */
+  month: number;
 }
 
 export const ILLNESSES: Record<IllnessType, IllnessDef> = {
-  heliumLungs: { name: 'Helium Lungs', room: 'ballast', fee: 1400, difficulty: 0.2, weight: 3, desc: 'Floats a few inches off the floor and squeaks when talking.' },
-  chromaticFlu: { name: 'Chromatic Flu', room: 'pharmacy', fee: 700, difficulty: 0.1, weight: 5, desc: 'Skin cycles through every colour of the rainbow.' },
-  staticCling: { name: 'Static Cling', room: 'grounding', fee: 1600, difficulty: 0.4, weight: 3, desc: 'Hair on end, sparks on contact, socks stuck to everything.' },
-  jellylegs: { name: 'Jellylegs', room: 'pharmacy', fee: 650, difficulty: 0.15, weight: 4, desc: 'Legs wobble like a dessert left in the sun.' },
-  glowbelly: { name: 'Glowbelly', room: 'ward', fee: 1100, difficulty: 0.3, weight: 3, desc: 'Swallowed a firefly. Possibly several.' },
-  frostbiteFever: { name: 'Frostbite Fever', room: 'sauna', fee: 1200, difficulty: 0.25, weight: 3, desc: 'Followed everywhere by a tiny personal snowstorm.' },
+  heliumLungs: { name: 'Helium Lungs', room: 'ballast', fee: 1400, difficulty: 0.2, weight: 3, month: 1, desc: 'Floats a few inches off the floor and squeaks when talking.' },
+  chromaticFlu: { name: 'Chromatic Flu', room: 'pharmacy', fee: 700, difficulty: 0.1, weight: 5, month: 0, desc: 'Skin cycles through every colour of the rainbow.' },
+  staticCling: { name: 'Static Cling', room: 'grounding', fee: 1600, difficulty: 0.4, weight: 3, month: 3, desc: 'Hair on end, sparks on contact, socks stuck to everything.' },
+  jellylegs: { name: 'Jellylegs', room: 'pharmacy', fee: 650, difficulty: 0.15, weight: 4, month: 0, desc: 'Legs wobble like a dessert left in the sun.' },
+  glowbelly: { name: 'Glowbelly', room: 'ward', fee: 1100, difficulty: 0.3, weight: 3, month: 2, desc: 'Swallowed a firefly. Possibly several.' },
+  frostbiteFever: { name: 'Frostbite Fever', room: 'sauna', fee: 1200, difficulty: 0.25, weight: 3, month: 1, desc: 'Followed everywhere by a tiny personal snowstorm.' },
 };
 
 export interface RoleDef {

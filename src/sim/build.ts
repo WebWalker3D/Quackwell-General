@@ -214,7 +214,7 @@ export function validateRoom(c: Ctx, type: RoomType, rect: Rect, door: DoorSpec)
 }
 
 function mkItem(id: number, p: PlannedItem, roomId: number, cost: number, t: number): Item {
-  return { id, type: p.type, x: p.x, z: p.z, rot: p.rot, roomId, claims: ITEMS[p.type].spots.map(() => -1), cost, builtAt: t };
+  return { id, type: p.type, x: p.x, z: p.z, rot: p.rot, roomId, claims: ITEMS[p.type].spots.map(() => -1), queue: [], cost, builtAt: t };
 }
 
 /** Greedy auto-layout of a room's required items: wall-backed, away from the door, room stays walkable. */

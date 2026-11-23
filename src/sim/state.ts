@@ -30,6 +30,8 @@ export interface Item {
   roomId: number;
   /** per spot index: entity id that reserved it, or -1 */
   claims: number[];
+  /** reception desks: patient ids in line, front first */
+  queue: number[];
   cost: number;
   builtAt: number;
 }
@@ -44,6 +46,9 @@ export interface Mover {
   face: number;
   path: Pt[];
   pathI: number;
+  /** final destination of the current path (re-pathed when the grid changes) */
+  dest: Pt | null;
+  pathVer: number;
   speed: number;
   pose: Pose;
   /** item+spot this mover currently holds */
@@ -78,9 +83,14 @@ export interface Patient extends Mover {
   thirst: number;
   happiness: number;
   gpVisits: number;
+  scans: number;
   state: PatientState;
-  /** room the patient is heading to / queued at */
+  /** room type the patient needs next */
+  need: RoomType | null;
+  /** room the patient is heading to / queued at, -1 if none exists yet */
   target: number;
+  /** reception desk item id while checking in, else -1 */
+  desk: number;
   /** remaining service seconds while being served */
   timer: number;
   cured: boolean;
