@@ -37,6 +37,9 @@ import { Ghost } from './render/ghost';
 import { Input } from './ui/input';
 import { Hud } from './ui/hud';
 import { Sfx } from './audio/sfx';
+import { deserialize, serialize } from './sim/save';
+import { readSave, writeSave, type Slot } from './ui/storage';
+import { calendar, monthLabel } from './sim/economy';
 import { startEmergency, startInspection } from './sim/happenings';
 import { dropLitter } from './sim/janitor';
 
@@ -44,7 +47,19 @@ const params = new URLSearchParams(location.search);
 const app = document.getElementById('app')!;
 const engine = new Engine(app, (params.get('q') as Quality) || undefined);
 const demo = params.get('demo');
-const world = demo === '1' ? createDemoWorld() : new World();
+let loadError = '';
+function bootWorld(): World {
+  if (demo === '1') return createDemoWorld();
+  const slot = params.get('load');
+  if (slot) {
+    const raw = readSave(slot);
+    const res = raw ? deserialize(raw) : { ok: false as const, reason: 'that slot is empty' };
+    if (res.ok) return new World(res.state);
+    loadError = `Couldn't load that save: ${res.reason}. Starting a fresh hospital instead.`;
+  }
+  return new World();
+}
+const world = bootWorld();
 const overlay = document.createElement('div');
 overlay.id = 'overlay';
 document.body.appendChild(overlay);
@@ -90,9 +105,25 @@ const hud = new Hud(world, {
   getSpeed: () => speed,
   setSpeed: (s) => setSpeed(s),
   setWeather: (w) => { view.weatherOverride = w; },
-  newGame: () => location.reload(),
+  newGame: () => { location.href = location.pathname; },
+  save: (slot: Slot) => saveTo(slot),
+  load: (slot: Slot) => { location.href = `${location.pathname}?load=${slot}&nowelcome`; },
+  toMenu: () => { saveTo('auto'); location.href = location.pathname; },
 });
-if (!demo && !params.has('nowelcome')) hud.welcome();
+function saveLabel() {
+  const cal = calendar(world.state.t);
+  return `Day ${cal.day}, ${monthLabel(cal.monthIndex)}, $${Math.round(world.state.money).toLocaleString()}`;
+}
+function saveTo(slot: Slot) {
+  if (demo) return false;
+  return writeSave(slot, serialize(world), saveLabel());
+}
+if (loadError) hud.toast(loadError, 'bad');
+let lastSavedDay = Math.floor(world.state.t / 90);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveTo('auto'); });
+window.addEventListener('pagehide', () => saveTo('auto'));
+if (!demo && !params.has('nowelcome') && !params.has('load')) hud.welcome();
+if (params.has('load') && !loadError) setTimeout(() => { speed = 1; }, 0);
 if (params.get('ui') === '0') document.getElementById('ui')!.style.visibility = 'hidden';
 if (params.has('tray')) hud.toggleTray(params.get('tray') as 'rooms');
 if (params.has('tool')) input.setTool({ kind: 'room', type: params.get('tool') as 'gp' });
@@ -107,6 +138,8 @@ function frame(now: number) {
   last = now;
   const alpha = loop.advance(dt, speed);
   const events = world.drainEvents();
+  const today = Math.floor(world.state.t / 90);
+  if (today !== lastSavedDay) { lastSavedDay = today; saveTo('auto'); }
   view.handle(events);
   hud.handle(events);
   sfx.handle(events);

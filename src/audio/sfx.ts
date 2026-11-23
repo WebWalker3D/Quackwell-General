@@ -18,7 +18,7 @@
  */
 import type { SimEvent } from '../sim/events';
 
-type Name = 'click' | 'build' | 'drop' | 'coin' | 'cure' | 'fail' | 'hire' | 'error' | 'whoosh' | 'goal';
+type Name = 'click' | 'build' | 'drop' | 'coin' | 'cure' | 'fail' | 'hire' | 'error' | 'whoosh' | 'goal' | 'siren' | 'clank' | 'fanfare';
 
 const PENTA = [0, 2, 4, 7, 9];
 const CHORDS = [[0, 4, 7], [-3, 0, 4], [5, 9, 12], [7, 11, 14]]; // I vi IV V in C
@@ -158,6 +158,21 @@ export class Sfx {
       case 'hire':
         this.bell(hz(19), 0.14);
         this.bell(hz(24), 0.14, 0.12);
+        break;
+      case 'siren':
+        for (let i = 0; i < 4; i++) {
+          this.tone(740, 0.32, 'triangle', 0.1, i * 0.62, 980);
+          this.tone(980, 0.3, 'triangle', 0.1, i * 0.62 + 0.31, 740);
+        }
+        break;
+      case 'clank':
+        this.tone(180, 0.25, 'square', 0.1, 0, 70);
+        this.hiss(0.35, 0.25, 3000, 600, 0.02, 3);
+        this.tone(1200, 0.12, 'square', 0.05, 0.08, 400);
+        break;
+      case 'fanfare':
+        [[0, 0], [4, 0.12], [7, 0.24], [12, 0.36], [7, 0.6], [12, 0.72], [16, 0.84]].forEach(([n, t]) => this.bell(hz(n + 12), 0.15, t, undefined, 1.4));
+        this.tone(hz(-12), 1.6, 'triangle', 0.1, 0.36);
         break;
       case 'whoosh':
         this.hiss(0.45, 0.3, 300, 3000, 0, 0.9);

@@ -297,7 +297,7 @@ export const ROOMS: Record<RoomType, RoomDef> = {
     desc: 'A doctor here works through research projects: new rooms, items and upgrades.',
   },
   psych: {
-    name: 'Psychiatry', minW: 4, minH: 4, staff: 'doctor', required: ['psychCouch', 'armchair'], floor: 'rose', wall: '#ffe3ef', accent: '#e05297',
+    name: 'Therapy Room', minW: 4, minH: 4, staff: 'doctor', required: ['psychCouch', 'armchair'], floor: 'rose', wall: '#ffe3ef', accent: '#e05297',
     baseCost: 7000, tileCost: 180, service: 'treat', duration: 16, fee: 0, icon: '🛋️', unlock: 'psychiatry',
     desc: 'Talks Echo-itis and Backwards Walking out of people.',
   },

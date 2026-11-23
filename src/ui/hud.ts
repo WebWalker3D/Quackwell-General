@@ -25,6 +25,11 @@ import { ILLNESSES, ITEMS, ROLES, ROOMS, roomCost, type ItemType, type Role, typ
 import { calendar, isNight, MONTH_NAMES, timeOfDay } from '../sim/economy';
 import { HIRE_ROLES, signingBonus } from '../sim/staff';
 import type { Patient, Staff } from '../sim/state';
+import { isItemUnlocked, isRoomUnlocked } from '../sim/unlocks';
+import { RESEARCH, availableResearch, researchDef } from '../sim/research';
+import { TRAIN_COST_PER_STAR, XP_PER_STAR } from '../sim/staff';
+import { SLOTS, saveMeta, type Slot } from './storage';
+import { DAY } from '../sim/economy';
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -44,7 +49,7 @@ const creditHtml = () =>
 
 const ROLE_ICON: Record<Role, string> = { doctor: '🩺', nurse: '💉', assistant: '📋', janitor: '🧹' };
 
-type TrayName = 'rooms' | 'items' | 'staff' | 'hospital' | 'settings';
+type TrayName = 'rooms' | 'items' | 'staff' | 'research' | 'hospital' | 'settings';
 
 interface Goal { text: string; done: (w: World) => boolean }
 const GOALS: Goal[] = [
@@ -69,6 +74,9 @@ export interface HudDeps {
   sfx: { play(name: string): void; volume: number; setVolume(v: number): void };
   setWeather: (w: 'clear' | 'rain' | 'snow' | null) => void;
   newGame: () => void;
+  save: (slot: Slot) => boolean;
+  load: (slot: Slot) => void;
+  toMenu: () => void;
 }
 
 export class Hud {
@@ -103,6 +111,7 @@ export class Hud {
       </div>
       <div class="panel goals" data-k="goals"></div>
       <div class="panel inspector" data-k="inspector" hidden></div>
+      <div class="banner" data-k="banner" hidden></div>
       <div class="toasts" data-k="toasts"></div>
       <div class="hint" data-k="hint" hidden></div>
       <div class="tray" data-k="tray" hidden></div>
@@ -110,6 +119,7 @@ export class Hud {
         ${this.capsule('rooms', '🏥', 'Rooms', '#19a7a0', '#e9fbf8', 'B')}
         ${this.capsule('items', '🪴', 'Items', '#ff5c8a', '#fff0f4', 'N')}
         ${this.capsule('staff', '🧑‍⚕️', 'Staff', '#ffc93c', '#fff8e6', 'H')}
+        ${this.capsule('research', '🧪', 'Research', '#20c997', '#e9fff6', 'L')}
         ${this.capsule('hospital', '📋', 'Hospital', '#7c8cff', '#eef0ff', 'J')}
         ${this.capsule('settings', '⚙️', 'Settings', '#9fb0c4', '#f3f7fb', '')}
         <button class="capsule" data-tool="sell" title="Sell rooms and items (X)" style="--c1:#1d2b4f;--c2:#f3f7fb"><span class="a" style="color:#fff">✂️</span><span class="b">Sell</span></button>
@@ -118,6 +128,7 @@ export class Hud {
     this.root.querySelectorAll<HTMLElement>('[data-k]').forEach((e) => (this.el[e.dataset.k!] = e));
     this.root.addEventListener('click', (e) => this.click(e));
     this.root.addEventListener('input', (e) => this.onInput(e));
+    window.addEventListener('keydown', (e) => this.escCapture(e), { capture: true });
     window.addEventListener('keydown', (e) => this.key(e));
     d.input.onToolChange.push(() => this.syncToolButtons());
     d.input.onSelect.push(() => { this.inspectorHtml = ''; this.renderInspector(); });
@@ -155,10 +166,86 @@ export class Hud {
     w.querySelector<HTMLButtonElement>('button')!.focus();
   }
 
+  private pauseEl: HTMLElement | null = null;
+  resumeSpeed = 1;
+
+  /** Esc with nothing else to cancel opens the pause menu. */
+  private escCapture(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return;
+    if (this.pauseEl) { this.closePause(); e.stopImmediatePropagation(); return; }
+    if (this.root.querySelector('.welcome, .modal')) return;
+    if (this.tray || this.d.input.tool.kind !== 'select' || this.d.input.selection) return;
+    this.openPause();
+    e.stopImmediatePropagation();
+  }
+
+  private openPause() {
+    this.resumeSpeed = this.d.getSpeed() || this.resumeSpeed || 1;
+    this.d.setSpeed(0);
+    const el = document.createElement('div');
+    el.className = 'welcome pause';
+    const slotRow = (slot: Slot) => {
+      const m = saveMeta(slot);
+      const when = m ? new Date(m.savedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Empty';
+      return `<div class="slot"><div><b>${slot === 'auto' ? 'Autosave' : `Slot ${slot}`}</b><span>${m ? esc(m.label) : ''}</span><small>${when}</small></div>
+        <div class="row">${slot !== 'auto' ? `<button class="btn quiet" data-save="${slot}">Save</button>` : ''}<button class="btn" data-load="${slot}" ${m ? '' : 'disabled'}>Load</button></div></div>`;
+    };
+    el.innerHTML = `<div class="card" role="dialog" aria-labelledby="pt"><h1 id="pt">Paused</h1>
+      <div class="slots">${SLOTS.map(slotRow).join('')}</div>
+      <div class="row" style="margin-top:16px"><button class="btn" data-act="resume">Resume</button><button class="btn quiet" data-act="menu">Main menu</button></div>
+      ${creditHtml()}</div>`;
+    this.root.appendChild(el);
+    this.pauseEl = el;
+    el.querySelector<HTMLButtonElement>('[data-act="resume"]')!.focus();
+  }
+
+  private closePause() {
+    this.pauseEl?.remove();
+    this.pauseEl = null;
+    this.d.setSpeed(this.resumeSpeed || 1);
+  }
+
+  private doSave(slot: Slot) {
+    if (this.d.save(slot)) {
+      this.toast(`Saved to slot ${slot}.`, 'good');
+      if (this.pauseEl) { this.closePause(); this.openPause(); }
+    } else this.toast('Could not save: browser storage is full or blocked.', 'bad');
+  }
+
+  private showAwards(e: { year: number; won: string[]; lost: string[]; bonus: number }) {
+    this.d.sfx.play('fanfare');
+    this.resumeSpeed = this.d.getSpeed() || 1;
+    this.d.setSpeed(0);
+    const el = document.createElement('div');
+    el.className = 'welcome modal';
+    const row = (name: string, won: boolean) => `<li class="${won ? 'won' : ''}"><span aria-hidden="true">${won ? '🏆' : '·'}</span>${name}</li>`;
+    el.innerHTML = `<div class="card" role="dialog" aria-labelledby="aw"><h1 id="aw">Year ${e.year} in review</h1>
+      <p>${e.won.length ? `The town's health board handed out ${e.won.length} award${e.won.length > 1 ? 's' : ''}, worth ${money(e.bonus)}.` : 'No awards this year. There is always next year.'}</p>
+      <ul class="awards">${e.won.map((n) => row(n, true)).join('')}${e.lost.map((n) => row(n, false)).join('')}</ul>
+      <button class="btn" data-act="closeAwards">Carry on</button></div>`;
+    this.root.appendChild(el);
+    el.querySelector<HTMLButtonElement>('button')!.focus();
+  }
+
+  private renderBanner() {
+    const ev = this.world.state.event;
+    const b = this.el.banner;
+    if (!ev) { b.hidden = true; return; }
+    const left = Math.max(0, ev.endsAt - this.world.state.t);
+    const d = Math.floor(left / DAY), h = Math.floor(((left % DAY) / DAY) * 24);
+    const time = d > 0 ? `${d}d ${h}h left` : `${h}h left`;
+    const html = ev.kind === 'emergency'
+      ? `<span aria-hidden="true">🚑</span><b>Emergency</b> ${ev.cured} of ${ev.needed} cured, ${time}`
+      : `<span aria-hidden="true">🎩</span><b>Inspection</b> under way, ${time}`;
+    if (b.innerHTML !== html) b.innerHTML = html;
+    b.hidden = false;
+    b.classList.toggle('urgent', ev.kind === 'emergency');
+  }
+
   private key(e: KeyboardEvent) {
     if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
-    const map: Record<string, TrayName> = { b: 'rooms', n: 'items', h: 'staff', j: 'hospital' };
+    const map: Record<string, TrayName> = { b: 'rooms', n: 'items', h: 'staff', l: 'research', j: 'hospital' };
     if (map[k]) this.toggleTray(map[k]);
     if (k === 'x') this.d.input.setTool(this.d.input.tool.kind === 'sell' ? { kind: 'select' } : { kind: 'sell' });
     if (k === 'escape' && this.tray) this.closeTray();
@@ -175,6 +262,23 @@ export class Hud {
     if (ds.room) { this.d.input.setTool({ kind: 'room', type: ds.room as RoomType }); this.closeTray(); this.d.sfx.play('click'); }
     if (ds.item) { this.d.input.setTool({ kind: 'item', type: ds.item as ItemType, rot: 0 }); this.closeTray(); this.d.sfx.play('click'); }
     if (ds.tab) { this.staffTab = ds.tab as Role; this.renderTray(true); this.d.sfx.play('click'); }
+    if (ds.research) {
+      const r = this.world.cmd({ type: 'research', id: ds.research });
+      if (r.ok) this.d.sfx.play('click');
+      else this.toast(`Can't research that: ${r.reason}.`, 'bad');
+      this.renderTray(true);
+    }
+    if (ds.train) {
+      const r = this.world.cmd({ type: 'train', id: Number(ds.train) });
+      if (r.ok) { this.d.sfx.play('hire'); this.toast('Off to the Training Room!', 'good'); }
+      else { this.d.sfx.play('error'); this.toast(`Can't train: ${r.reason}.`, 'bad'); }
+      this.inspectorHtml = '';
+    }
+    if (ds.save) this.doSave(ds.save as Slot);
+    if (ds.load) this.d.load(ds.load as Slot);
+    if (ds.act === 'resume') this.closePause();
+    if (ds.act === 'menu') this.d.toMenu();
+    if (ds.act === 'closeAwards') { (t.closest('.modal') as HTMLElement)?.remove(); this.d.setSpeed(this.resumeSpeed || 1); }
     if (ds.hire) {
       const r = this.world.cmd({ type: 'hire', candidateId: Number(ds.hire) });
       if (r.ok) { this.d.sfx.play('hire'); this.toast('New hire on the way in!', 'good'); }
@@ -244,9 +348,10 @@ export class Hud {
         html = `<h2>Rooms</h2><p class="sub">Pick a room, then drag out its floor in the corridor. Equipment is installed for you.</p><div class="grid">`;
         for (const [k, def] of Object.entries(ROOMS) as [RoomType, (typeof ROOMS)[RoomType]][]) {
           const cost = roomCost(k, def.minW, def.minH);
-          html += `<button class="card" data-room="${k}" ${s.money < cost ? 'disabled' : ''}>
+          const locked = !isRoomUnlocked(s, k);
+          html += `<button class="card" data-room="${k}" ${s.money < cost || locked ? 'disabled' : ''}>
             <div class="icon" aria-hidden="true">${def.icon}</div><div class="name">${def.name}</div>
-            <div class="meta"><span class="tag cost">from ${money(cost)}</span><span class="tag">${def.minW}×${def.minH}+</span>${def.staff ? `<span class="tag role">${ROLE_ICON[def.staff]} ${ROLES[def.staff].name}</span>` : '<span class="tag">no staff</span>'}</div>
+            <div class="meta">${locked ? '<span class="tag lock">🔒 research first</span>' : ''}<span class="tag cost">from ${money(cost)}</span><span class="tag">${def.minW}×${def.minH}+</span>${def.staff ? `<span class="tag role">${ROLE_ICON[def.staff]} ${ROLES[def.staff].name}</span>` : '<span class="tag">no staff</span>'}</div>
             <div class="desc">${def.desc}</div></button>`;
         }
         html += '</div>';
@@ -256,9 +361,10 @@ export class Hud {
         html = `<h2>Items</h2><p class="sub">Decor makes waiting patients calmer. Drinks earn a little and keep them from storming out.</p><div class="grid">`;
         for (const [k, def] of Object.entries(ITEMS) as [ItemType, (typeof ITEMS)[ItemType]][]) {
           if (!def.buyable) continue;
-          html += `<button class="card" data-item="${k}" ${s.money < def.cost ? 'disabled' : ''}>
+          const locked = !isItemUnlocked(s, k);
+          html += `<button class="card" data-item="${k}" ${s.money < def.cost || locked ? 'disabled' : ''}>
             <div class="icon" aria-hidden="true">${ITEM_ICON[k] ?? '📦'}</div><div class="name">${def.name}</div>
-            <div class="meta"><span class="tag cost">${money(def.cost)}</span>${def.where === 'room' ? '<span class="tag">rooms</span>' : def.where === 'corridor' ? '<span class="tag">corridors</span>' : ''}</div>
+            <div class="meta">${locked ? '<span class="tag lock">🔒 research first</span>' : ''}<span class="tag cost">${money(def.cost)}</span>${def.where === 'room' ? '<span class="tag">rooms</span>' : def.where === 'corridor' ? '<span class="tag">corridors</span>' : ''}</div>
             <div class="desc">${def.desc}</div></button>`;
         }
         html += '</div>';
@@ -280,6 +386,25 @@ export class Hud {
         for (const st of team) {
           html += `<div class="staffrow"><span>${ROLE_ICON[st.role]} ${esc(st.name)} <small style="color:var(--ink-soft)">${this.staffStatus(st)}</small></span>${stars(st.skill)}<span>${money(st.salary)}/mo</span><button class="btn pink" data-fire="${st.id}">Fire</button></div>`;
         }
+        break;
+      }
+      case 'research': {
+        const r = s.research;
+        const labs = s.rooms.filter((x) => x.type === 'research');
+        const working = labs.filter((x) => x.staffId !== -1).length;
+        const cur = r.current ? researchDef(r.current) : undefined;
+        html = `<h2>Research</h2><p class="sub">${labs.length ? `${working} of ${labs.length} lab${labs.length > 1 ? 's' : ''} staffed. Pick a project and your researchers get to work.` : 'Build a Research Lab and put a Doctor in it to start researching.'}</p>`;
+        if (cur) html += this.bar(`${cur.icon} ${cur.name}: ${Math.floor(Math.min(r.points, cur.cost))} / ${cur.cost}`, r.points / cur.cost, '#20c997');
+        else if (r.points > 0) html += `<p class="sub">${Math.floor(r.points)} points banked for the next project.</p>`;
+        html += '<div class="grid" style="margin-top:10px">';
+        for (const def of availableResearch(s)) {
+          const on = r.current === def.id;
+          html += `<button class="card${on ? ' on' : ''}" data-research="${def.id}" aria-pressed="${on}"><div class="icon" aria-hidden="true">${def.icon}</div><div class="name">${def.name}</div>
+            <div class="meta"><span class="tag">${def.cost} points</span>${on ? '<span class="tag role">in progress</span>' : ''}</div><div class="desc">${def.desc}</div></button>`;
+        }
+        html += '</div>';
+        const done = RESEARCH.filter((d) => r.done.includes(d.id));
+        if (done.length) html += `<p class="sub" style="margin-top:12px">Done: ${done.map((d) => `${d.icon} ${d.name}`).join(', ')}</p>`;
         break;
       }
       case 'hospital': {
@@ -334,7 +459,7 @@ export class Hud {
     const room = p.target >= 0 ? this.world.room(p.target) : undefined;
     const rn = room ? ROOMS[room.type].name : '';
     switch (p.state) {
-      case 'arriving': return 'Heading in through the front doors.';
+      case 'arriving': return p.vip ? 'Arriving to inspect the hospital.' : p.emergency ? 'Rushed in by ambulance!' : 'Heading in through the front doors.';
       case 'queueReception': return p.desk === -1 ? 'Looking for somewhere to check in.' : 'Queuing at the Front Desk.';
       case 'atReception': return 'Checking in.';
       case 'seekRoom': return 'Working out where to go next.';
@@ -349,6 +474,14 @@ export class Hud {
 
   private staffStatus(st: Staff): string {
     if (st.state === 'leaving') return 'Leaving for good';
+    if (st.state === 'toBreak') return 'Heading for a break';
+    if (st.state === 'onBreak') return 'On a break in the Staff Room';
+    if (st.state === 'toTraining') return 'Heading to training';
+    if (st.state === 'training') return `Training (${Math.ceil(st.trainLeft)}s left)`;
+    if (st.role === 'janitor') {
+      if (st.state === 'toJob' || st.state === 'doingJob') return st.job?.kind === 'repair' ? 'Fixing a machine' : 'Sweeping up';
+      return 'Looking for mess';
+    }
     if (st.state === 'toPost') return 'Heading to work';
     if (st.state === 'atPost') {
       if (st.post < 0) return 'At the Front Desk';
@@ -372,7 +505,13 @@ export class Hud {
       const p = this.world.patient(sel.id);
       if (!p) { box.hidden = true; return; }
       const ill = ILLNESSES[p.illness];
-      html += `<div class="who"><div class="avatar" aria-hidden="true">🤒</div><div><b>${esc(p.name)}</b><span>${p.diagnosed ? ill.name : 'Not diagnosed yet'}</span></div></div>`;
+      if (p.vip) {
+        html += `<div class="who"><div class="avatar" aria-hidden="true">🎩</div><div><b>${esc(p.name)}</b><span>Health inspector</span></div></div><div class="status">Taking notes on cleanliness, comfort, queues and broken machines.</div>`;
+        if (html !== this.inspectorHtml) { this.inspectorHtml = html; box.innerHTML = html; }
+        box.hidden = false;
+        return;
+      }
+      html += `<div class="who"><div class="avatar" aria-hidden="true">${p.emergency ? '🚑' : '🤒'}</div><div><b>${esc(p.name)}</b><span>${p.diagnosed ? ill.name : 'Not diagnosed yet'}</span></div></div>`;
       if (p.diagnosed) html += `<div class="desc" style="font-size:13px;font-weight:600;color:var(--ink-soft)">${ill.desc} Cured in a ${ROOMS[ill.room].name}.</div>`;
       html += this.bar('Diagnosis', p.certainty, '#7c8cff');
       html += this.bar('Patience', p.patience / 100, p.patience < 30 ? '#ff4d6d' : '#24c08a');
@@ -384,13 +523,26 @@ export class Hud {
       html += `<div class="who"><div class="avatar" aria-hidden="true">${ROLE_ICON[st.role]}</div><div><b>${esc(st.name)}</b><span>${ROLES[st.role].name}</span></div></div>`;
       html += `<div class="meta">${stars(st.skill)} <span class="tag">${esc(st.trait)}</span></div>`;
       html += `<dl class="kv" style="margin-top:8px"><dt>Salary</dt><dd>${money(st.salary)}/mo</dd></dl>`;
-      html += `<div class="status">${this.staffStatus(st)}.</div><button class="btn pink" data-fire="${st.id}">Fire</button>`;
+      html += this.bar('Energy', st.energy / 100, st.energy < 22 ? '#ff4d6d' : '#ffc93c');
+      html += this.bar('Mood', st.mood / 100, st.mood < 25 ? '#ff4d6d' : '#24c08a');
+      if (st.skill < 5) html += this.bar(`Experience toward ${'★'.repeat(st.skill + 1)}`, st.xp / XP_PER_STAR, '#7c8cff');
+      html += `<div class="status">${this.staffStatus(st)}.</div><div class="row">`;
+      if (st.skill < 5) html += `<button class="btn" data-train="${st.id}">Train for ${money(TRAIN_COST_PER_STAR * st.skill)}</button>`;
+      html += `<button class="btn pink" data-fire="${st.id}">Fire</button></div>`;
     } else if (sel.kind === 'room') {
       const r = this.world.room(sel.id);
       if (!r) { box.hidden = true; return; }
       const def = ROOMS[r.type];
       const st = r.staffId !== -1 ? this.world.staffById(r.staffId) : undefined;
       html += `<div class="who"><div class="avatar" aria-hidden="true">${def.icon}</div><div><b>${def.name}</b><span>${r.rect.w}×${r.rect.h}</span></div></div>`;
+      const broken = this.world.state.items.filter((it) => r.items.includes(it.id) && it.broken);
+      if (broken.length) html += `<div class="status bad">${broken.map((b) => ITEMS[b.type].name).join(', ')} broken. A janitor will fix it.</div>`;
+      const wearItems = this.world.state.items.filter((it) => r.items.includes(it.id) && ITEMS[it.type].machine);
+      for (const m of wearItems) html += this.bar(`${ITEMS[m.type].name} wear`, m.wear / 100, m.wear > 70 ? '#ff4d6d' : '#9fb0c4');
+      if (r.type === 'research') {
+        const cur = this.world.state.research.current ? researchDef(this.world.state.research.current) : undefined;
+        html += `<div class="status">${cur ? `Researching ${cur.name}.` : 'No project picked. Open Research (L) to choose one.'}</div>`;
+      }
       if (def.staff) {
         html += `<dl class="kv"><dt>${ROLES[def.staff].name}</dt><dd>${st ? esc(st.name) : 'Nobody'}</dd><dt>Queue</dt><dd>${r.queue.length}</dd><dt>Inside</dt><dd>${r.occupants.length}</dd></dl>`;
         html += `<div class="status">${st ? def.desc : `Hire a ${ROLES[def.staff].name} to open this room.`}</div>`;
@@ -454,6 +606,11 @@ export class Hud {
 
   handle(events: SimEvent[]) {
     for (const e of events) {
+      if (e.type === 'awards') this.showAwards(e);
+      if (e.type === 'eventStart') this.d.sfx.play(e.kind === 'emergency' ? 'siren' : 'hire');
+      if (e.type === 'broke') this.d.sfx.play('clank');
+      if (e.type === 'promoted' || e.type === 'trained') this.d.sfx.play('goal');
+      if (e.type === 'researched') { this.d.sfx.play('goal'); if (this.tray === 'research') this.renderTray(true); }
       if (e.type === 'toast') this.toast(e.text, e.tone);
       if (e.type === 'month') this.toast(`Payday: ${money(e.salaries)} in salaries went out. Welcome to ${e.label}.`, 'info');
     }
@@ -489,6 +646,7 @@ export class Hud {
     if (this.acc > 0.25) {
       this.acc = 0;
       this.renderInspector();
+      this.renderBanner();
       this.checkGoals();
       if (this.tray) this.renderTray();
       if (this.showFps) this.el.fps.textContent = `${this.d.engine.fps.toFixed(0)} fps, ${QUALITY_NAMES[this.d.engine.quality]}, ${Math.round(this.d.engine.renderScale * 100)}% resolution`;

@@ -30,7 +30,7 @@ export const RESEARCH: ResearchDef[] = [
   { id: 'bedsideManner', name: 'Bedside Manner', cost: 90, icon: '🤝', desc: 'Patients lose patience 20% more slowly.' },
   { id: 'sharperDiagnosis', name: 'Sharper Diagnosis', cost: 100, icon: '🔎', desc: 'Consult Rooms and Scan Labs diagnose 10 points better.' },
   { id: 'sturdyMachines', name: 'Sturdy Machines', cost: 110, icon: '🔧', desc: 'Machines wear out half as fast.' },
-  { id: 'psychiatry', name: 'Psychiatry', cost: 120, icon: '🛋️', desc: 'Unlocks the Psychiatry room for Echo-itis and Backwards Walking.' },
+  { id: 'psychiatry', name: 'Talking Therapy', cost: 120, icon: '🛋️', desc: 'Unlocks the Therapy Room for Echo-itis and Backwards Walking.' },
   { id: 'localBuzz', name: 'Local Buzz', cost: 130, icon: '📣', desc: 'Word gets around: 20% more patients turn up.' },
   { id: 'duckStatue', name: 'Golden Duck Statue', cost: 140, icon: '🦆', desc: 'Unlocks the hospital mascot statue, the comfiest decor there is.' },
   { id: 'steadyCures', name: 'Steady Cures', cost: 140, icon: '💪', desc: 'Every treatment is 5% more likely to work.' },

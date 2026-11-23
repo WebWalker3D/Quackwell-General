@@ -9,11 +9,16 @@ no textbook has heard of, all inside a glossy miniature diorama rendered in real
 
 **The game**
 
-- Drag out rooms in the corridor and the equipment installs itself. There are seven rooms, from the Consult Room to the Grounding Room and its lightning coil.
-- Hire doctors, nurses and assistants, each with a skill rating, a trait and a monthly salary.
+- Drag out rooms in the corridor and the equipment installs itself. There are eleven rooms, from the Consult Room to the Grounding Room and its lightning coil.
+- Hire doctors, nurses, assistants and janitors, each with a skill rating, a trait and a monthly salary.
 - Patients check in at the front desk, see a doctor until they're diagnosed, then head to the right treatment room.
-- Six original illnesses: Helium Lungs, Chromatic Flu, Static Cling, Jellylegs, Glowbelly and Frostbite Fever. New ones turn up as the months go by.
+- Ten original illnesses, among them Helium Lungs, Chromatic Flu, Static Cling, Bubble Trouble, Echo-itis and Ghosting. New ones turn up as the months go by.
 - Queues, benches, thirst, patience, decor, treatment prices, reputation and payday at the end of each month. Neglect any of them and patients storm out.
+- Staff get tired and need a Staff Room; push them too hard and they quit. They gain experience on the job, and the Training Room adds skill stars faster.
+- Patients drop cans and wrappers, and machines wear out and break down. Janitors sweep up and fix things.
+- A Research Lab works through projects that unlock new rooms (Therapy Room), new items (Arcade Cabinet, Golden Duck Statue) and hospital-wide upgrades.
+- Ambulance emergencies with a deadline and a bonus, surprise health inspections, and awards at the end of every year.
+- Autosave every in-game day, plus three save slots in the pause menu.
 
 **The graphics**
 
@@ -46,7 +51,8 @@ Then open the address it prints, usually http://localhost:5173.
 | Zoom | Mouse wheel |
 | Rotate the view | Q / E |
 | Pause, speeds | Space, 1, 2, 3 |
-| Rooms, Items, Staff, Hospital | B, N, H, J |
+| Rooms, Items, Staff, Research, Hospital | B, N, H, L, J |
+| Pause menu (save and load) | Esc |
 | Sell tool | X |
 | Rotate an item before placing it | R |
 | Sell the selected room or item | Delete (twice for rooms) |
@@ -88,11 +94,13 @@ These URL flags are handy with them:
 | `&cam=0` to `&cam=3` | Camera angle |
 | `&q=ultra`, `high`, `medium` or `low` | Graphics preset |
 | `&ui=0` | Hide the interface |
+| `&event=emergency` or `&event=inspection` | Start an event right away |
+| `&mess=1` | Scatter litter, break the coil and hire a janitor |
 
 ## Roadmap
 
-- **Milestone 2:** staff training, research, staff needs and janitors, emergencies and epidemics, saving and loading.
-- **Milestone 3:** a campaign of hospitals with star goals, unlocks, a sandbox mode, and yearly awards.
+- **Milestone 2 (done):** staff needs and training, janitors, machine wear, research, emergencies, inspections, awards, saving and loading.
+- **Milestone 3:** a campaign of hospitals with star goals, unlocks and a sandbox mode.
 
 ## License
 
