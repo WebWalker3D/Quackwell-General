@@ -1,0 +1,61 @@
+import * as THREE from 'three';
+import {
+  EffectComposer, RenderPass, EffectPass, BloomEffect, TiltShiftEffect, ToneMappingEffect, ToneMappingMode,
+  HueSaturationEffect, BrightnessContrastEffect, VignetteEffect, NoiseEffect, SMAAEffect, SMAAPreset, KernelSize, BlendFunction,
+} from 'postprocessing';
+// @ts-expect-error n8ao ships without type declarations
+import { N8AOPostPass } from 'n8ao';
+import type { Preset } from './engine';
+
+export interface PostStack {
+  composer: EffectComposer;
+  bloom: BloomEffect | null;
+  tilt: TiltShiftEffect | null;
+  ao: { configuration: Record<string, unknown>; setSize(w: number, h: number): void } | null;
+  dispose(): void;
+}
+
+export function buildPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, p0: Preset, w: number, h: number): PostStack {
+  const off = new Set((new URLSearchParams(location.search).get('off') ?? '').split(','));
+  const p: Preset = { ...p0, ao: off.has('ao') ? 'off' : p0.ao, bloom: p0.bloom && !off.has('bloom'), tiltShift: p0.tiltShift && !off.has('tilt'), smaa: p0.smaa && !off.has('smaa') };
+  const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 0 });
+  composer.addPass(new RenderPass(scene, camera));
+  let ao: PostStack['ao'] = null;
+  if (p.ao !== 'off') {
+    const n8 = new N8AOPostPass(scene, camera, w, h);
+    const c = n8.configuration;
+    c.aoRadius = 1.6;
+    c.distanceFalloff = 0.9;
+    c.intensity = 3.2;
+    c.color = new THREE.Color('#2a1a2e');
+    c.halfRes = p.ao === 'half';
+    c.depthAwareUpsampling = true;
+    c.gammaCorrection = false;
+    n8.setQualityMode(p.ao === 'full' ? 'High' : 'Medium');
+    composer.addPass(n8);
+    ao = n8;
+  }
+  let bloom: BloomEffect | null = null;
+  if (p.bloom) {
+    bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 1.35, luminanceSmoothing: 0.35, intensity: 1.2, radius: 0.7, levels: 7 });
+    composer.addPass(new EffectPass(camera, bloom));
+  }
+  let tilt: TiltShiftEffect | null = null;
+  if (p.tiltShift) {
+    tilt = new TiltShiftEffect({ offset: 0.0, rotation: 0, focusArea: 0.95, feather: 0.6, kernelSize: KernelSize.SMALL, resolutionScale: 0.5 });
+    composer.addPass(new EffectPass(camera, tilt));
+  }
+  const tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
+  const sat = new HueSaturationEffect({ saturation: 0.12 });
+  const bc = new BrightnessContrastEffect({ brightness: 0.0, contrast: 0.06 });
+  const vig = new VignetteEffect({ darkness: 0.42, offset: 0.32 });
+  const noise = new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: false });
+  noise.blendMode.opacity.value = 0.05;
+  composer.addPass(off.has('grade') ? new EffectPass(camera, tone) : new EffectPass(camera, tone, sat, bc));
+  if (p.smaa) composer.addPass(new EffectPass(camera, new SMAAEffect({ preset: SMAAPreset.HIGH })));
+  if (!off.has('vig')) composer.addPass(new EffectPass(camera, vig, noise));
+  return {
+    composer, bloom, tilt, ao,
+    dispose() { composer.dispose(); },
+  };
+}
