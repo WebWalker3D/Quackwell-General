@@ -34,6 +34,7 @@ export class Input {
   private door: DoorSpec | null = null;
   private down: { x: number; y: number; button: number } | null = null;
   private pendingSell: { id: number; until: number } | null = null;
+  private moveKey = '';
   private ring: THREE.Mesh;
   private hoverRing: THREE.Mesh;
 
@@ -97,13 +98,22 @@ export class Input {
     if (k === 'r' && this.tool.kind === 'item') {
       this.tool = { ...this.tool, rot: (this.tool.rot + 1) % 4 };
       this.onSfx?.('click');
-      this.move();
+      this.move(true);
     }
     if (k === ' ') { e.preventDefault(); this.onSpeedKey?.('toggle'); }
     if (k === '1' || k === '2' || k === '3') this.onSpeedKey?.(k === '1' ? 1 : k === '2' ? 2 : 4);
-    if (k === 'delete' || k === 'backspace') {
+    if (k === 'delete') {
       const s = this.selection;
-      if (s && (s.kind === 'room' || s.kind === 'item')) this.sell(s.kind, s.id);
+      if (s && (s.kind === 'room' || s.kind === 'item')) {
+        const now = performance.now();
+        if (s.kind === 'room' && (!this.pendingSell || this.pendingSell.id !== s.id || now > this.pendingSell.until)) {
+          this.pendingSell = { id: s.id, until: now + 3000 };
+          this.onToast?.('Press Delete again to sell this room.', 'warn');
+          return;
+        }
+        this.pendingSell = null;
+        this.sell(s.kind, s.id);
+      }
     }
   }
 
@@ -193,9 +203,14 @@ export class Input {
     return { door: null, reason };
   }
 
-  move() {
+  move(force = false) {
     const t = this.tileAt();
     const g = this.ground();
+    // validation is expensive: only redo it when the hovered tile, door edge, tool or world changed
+    const doorKey = this.roomRect && g ? JSON.stringify(this.nearestDoor(this.roomRect, g)) : '';
+    const key = `${JSON.stringify(this.tool)}|${t?.x},${t?.z}|${JSON.stringify(this.drag)}|${JSON.stringify(this.roomRect)}|${doorKey}|${this.world.grid.version}|${Math.floor(this.world.state.money / 50)}`;
+    if (!force && key === this.moveKey) return;
+    this.moveKey = key;
     switch (this.tool.kind) {
       case 'room': {
         const type = this.tool.type;

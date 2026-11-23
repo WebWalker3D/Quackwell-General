@@ -245,7 +245,10 @@ export class BuildingView {
     const g = world.grid;
     const old = this.edges;
     this.edges = new Map();
-    for (const d of this.doors) this.group.remove(d.group);
+    for (const d of this.doors) {
+      this.group.remove(d.group);
+      d.group.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+    }
     const oldDoors = new Map(this.doors.map((d) => [`${d.cx},${d.cz}`, d]));
     this.doors = [];
     let nw = 0, nb = 0, ng = 0, nm = 0, ns = 0;

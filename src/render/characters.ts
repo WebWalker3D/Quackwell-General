@@ -96,6 +96,10 @@ const tmp = {
 };
 
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const tmpV = new THREE.Vector3();
+const tmpQ2 = new THREE.Quaternion();
+const tmpE2 = new THREE.Euler();
+const tmpS2 = new THREE.Vector3();
 
 function hash(n: number, shift: number, mod: number) {
   return ((n >>> shift) ^ (n * 2654435761 >>> (shift + 3))) % mod;
@@ -270,7 +274,7 @@ export class Characters {
     tmp.root.compose(tmp.p, tmp.q, tmp.s);
 
     const L = (x: number, y: number, z: number, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
-      tmp.local.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(sx, sy, sz));
+      tmp.local.compose(tmpV.set(x, y, z), tmpQ2.setFromEuler(tmpE2.set(rx, ry, rz)), tmpS2.set(sx, sy, sz));
       return tmp.out.multiplyMatrices(tmp.root, tmp.local);
     };
 
@@ -282,7 +286,7 @@ export class Characters {
       const a = sitLeg + swing * side + wob * side;
       const legM = L(side * 0.095, 0.42, 0, a, 0, wob * 0.3 * side).clone();
       this.put('leg', counts, legM, pants);
-      tmp.local.compose(new THREE.Vector3(0, -0.4, 0.035), new THREE.Quaternion().setFromEuler(new THREE.Euler(-a * 0.2, 0, 0)), new THREE.Vector3(1, 1, 1));
+      tmp.local.compose(tmpV.set(0, -0.4, 0.035), tmpQ2.setFromEuler(tmpE2.set(-a * 0.2, 0, 0)), tmpS2.set(1, 1, 1));
       this.put('shoe', counts, tmp.out.multiplyMatrices(legM, tmp.local), BLACK);
     }
     // torso (doctors wear a coat instead)
@@ -319,7 +323,7 @@ export class Characters {
     const headM = L(0, 1.07, 0, nod, 0, Math.sin(t * 0.7 + m.id) * 0.04, 1, 0.96, 0.98).clone();
     this.put('head', counts, headM, skinC);
     const sub = (x: number, y: number, z: number, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
-      tmp.local.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(sx, sy, sz));
+      tmp.local.compose(tmpV.set(x, y, z), tmpQ2.setFromEuler(tmpE2.set(rx, ry, rz)), tmpS2.set(sx, sy, sz));
       return tmp.out.multiplyMatrices(headM, tmp.local);
     };
     const blink = rs.blinkT < 0 ? 0.12 : 1;

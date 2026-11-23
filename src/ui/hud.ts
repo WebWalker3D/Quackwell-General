@@ -447,10 +447,11 @@ export class Hud {
     this.el.speed.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.speed) === sp)));
     const input = this.d.input;
     this.el.hint.hidden = !input.hintText || !!this.tray;
-    if (input.hintText) {
+    if (input.hintText && this.el.hint.dataset.html !== input.hintText) {
+      this.el.hint.dataset.html = input.hintText;
       this.el.hint.innerHTML = input.hintText;
-      this.el.hint.classList.toggle('bad', input.hintBad);
     }
+    this.el.hint.classList.toggle('bad', input.hintBad);
     this.acc += dt;
     if (this.acc > 0.25) {
       this.acc = 0;

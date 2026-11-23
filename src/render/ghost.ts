@@ -100,7 +100,10 @@ export class Ghost {
     this.border.visible = false;
     this.door.visible = false;
     if (this.itemType !== type) {
-      if (this.item) this.group.remove(this.item);
+      if (this.item) {
+        this.group.remove(this.item);
+        this.item.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+      }
       this.item = buildItemMesh(type);
       this.item.traverse((o) => {
         const mesh = o as THREE.Mesh;
