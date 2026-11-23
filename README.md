@@ -3,6 +3,8 @@
 A hospital management sim with toy-box graphics. You build rooms, hire staff and cure five towns of illnesses
 no textbook has heard of, all inside a glossy miniature diorama rendered in real time in your browser.
 
+**[Play it in your browser](https://webwalker3d.github.io/Quackwell-General/)**. There's nothing to install.
+
 ![The hospital at work on a sunny afternoon](docs/images/hospital-day.jpg)
 
 ## What's in it
@@ -46,7 +48,8 @@ no textbook has heard of, all inside a glossy miniature diorama rendered in real
 
 ## Playing
 
-You need Node.js 20 or newer and a browser with WebGL 2.
+The quickest way is the hosted copy at https://webwalker3d.github.io/Quackwell-General/, which needs a browser
+with WebGL 2. To run it yourself you also need Node.js 20 or newer.
 
 ```bash
 npm install
@@ -92,6 +95,9 @@ is covered by the tests. `src/render` reads the simulation state each frame and 
 turns clicks and keys into simulation commands. Balance numbers live together in `BALANCE` in
 `src/sim/catalog.ts`.
 
+Every push to `main` runs the tests, builds the game and publishes it to GitHub Pages
+(`.github/workflows/pages.yml`). Asset paths in the build are relative, so `dist/` also works from any subfolder.
+
 The scripts in `scripts/` drive a real GPU-backed Chromium through Playwright:
 
 - `node scripts/shot.mjs <url> <out.png>` takes a screenshot
@@ -118,7 +124,8 @@ These URL flags are handy with them:
 
 - **Milestone 2 (done):** staff needs and training, janitors, machine wear, research, emergencies, inspections, awards, saving and loading.
 - **Milestone 3 (done):** a campaign of five themed hospitals with star goals, a sandbox mode and a title screen.
-- **Next:** more illnesses and rooms, staff traits that matter more, a hosted build to play in the browser.
+- **Hosted build (done):** playable on GitHub Pages, redeployed on every push to `main`.
+- **Next:** more illnesses and rooms, staff traits that matter more.
 
 ## License
 
