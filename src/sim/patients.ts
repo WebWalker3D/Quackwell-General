@@ -30,6 +30,7 @@ import type { Item, Patient, Room } from './state';
 import { gainXp, releaseSpot, staffed } from './staff';
 import { isRoomUnlocked } from './unlocks';
 import { binNear, dropLitter, litterNear, roomBroken, wearMachines } from './janitor';
+import { boosts } from './research';
 import type { Pt } from './path';
 import type { World } from './world';
 
@@ -105,7 +106,7 @@ function drainPatience(w: World, p: Patient, dt: number) {
   const base = p.pose === 'sit' ? PATIENCE_SIT : PATIENCE_STAND;
   const thirsty = p.thirst > 85 ? 1.3 : 1;
   const messy = litterNear(w.state, p.x, p.z) ? 1 + BALANCE.litterPatience : 1;
-  p.patience -= dt * base * thirsty * messy * (1 - comfortAt(w, p.x, p.z));
+  p.patience -= dt * base * thirsty * messy * boosts(w.state).patience * (1 - comfortAt(w, p.x, p.z));
   p.waitedFor += dt;
   if (p.patience <= 0) leave(w, p, 'impatient');
 }
@@ -320,6 +321,7 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
   if (def.service === 'gp' || def.service === 'diagnose') {
     let base = def.service === 'gp' ? BALANCE.gpBase + BALANCE.gpPerSkill * skill : BALANCE.scanBase + BALANCE.scanPerSkill * skill;
     if (trait === 'Sharp Eye') base += 8;
+    base += boosts(s).diagnosis;
     p.certainty = Math.min(1, p.certainty + (base / 100) * (1 - 0.35 * ill.difficulty));
     if (def.service === 'gp') p.gpVisits++;
     else p.scans++;
@@ -334,7 +336,7 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
     p.state = 'seekRoom';
     return;
   }
-  const chanceOk = Math.min(BALANCE.cureCap, BALANCE.cureBase + BALANCE.curePerSkill * skill + (trait === 'Steady Hands' ? 0.05 : 0)) * (1 - BALANCE.certaintyWeight + BALANCE.certaintyWeight * p.certainty);
+  const chanceOk = Math.min(BALANCE.cureCap, BALANCE.cureBase + BALANCE.curePerSkill * skill + (trait === 'Steady Hands' ? 0.05 : 0) + boosts(s).cure) * (1 - BALANCE.certaintyWeight + BALANCE.certaintyWeight * p.certainty);
   const force = w.opts.forceTreatment;
   const success = force ? force === 'success' : rand(s.rng) < chanceOk;
   if (success) {
@@ -520,7 +522,7 @@ export function updatePatients(w: World, dt: number) {
         if (p.timer <= 0) {
           const it = p.spot ? w.item(p.spot.item) : undefined;
           if (it?.type === 'vending') {
-            const amount = Math.round((s.research.done.includes('fizzDeluxe') ? 12 : 5) * s.priceMult);
+            const amount = Math.round(boosts(s).vending * s.priceMult);
             earn(s, amount);
             w.emit({ type: 'paid', amount, x: p.x, z: p.z, label: 'Fizz' });
           }

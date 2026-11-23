@@ -35,6 +35,7 @@ export type SimEvent =
   | { type: 'broke'; itemId: number; roomId: number }
   | { type: 'repaired'; itemId: number }
   | { type: 'cleaned'; x: number; z: number }
+  | { type: 'researched'; id: string }
   | { type: 'fired'; id: number }
   | { type: 'service'; roomId: number; patientId: number; phase: 'start' | 'end' }
   | { type: 'toast'; text: string; tone: 'info' | 'warn' | 'good' | 'bad' }
@@ -48,6 +49,7 @@ export type Command =
   | { type: 'hire'; candidateId: number }
   | { type: 'fire'; id: number }
   | { type: 'train'; id: number }
+  | { type: 'research'; id: string }
   | { type: 'setPriceMult'; value: number };
 
 export interface CommandResult { ok: boolean; reason?: string; id?: number }

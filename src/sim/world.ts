@@ -27,6 +27,7 @@ import { fireStaff, genCandidates, hireCandidate, releaseStaffFrom, trainStaff, 
 import { releasePatientsFrom, spawnPatient, updatePatients, updateRooms, type SpawnOpts } from './patients';
 import { BALANCE, ILLNESSES, type IllnessType } from './catalog';
 import { stop } from './move';
+import { boosts, chooseResearch, updateResearch } from './research';
 
 export interface WorldOptions {
   /** spawn patients automatically (default true) */
@@ -92,6 +93,7 @@ export class World {
     this.monthCheck();
     this.spawnCheck(dt);
     updateStaff(this, dt);
+    updateResearch(this, dt);
     updateRooms(this, dt);
     updatePatients(this, dt);
     s.patients = s.patients.filter((p) => p.state !== 'gone');
@@ -132,7 +134,7 @@ export class World {
     const base = BALANCE.spawnMin + BALANCE.spawnRange * repF;
     const night = isNight(s.t) ? BALANCE.nightSlowdown : 1;
     const ease = s.t < MONTH ? 1.5 : 1;
-    s.spawnTimer = base * night * ease * Math.pow(s.priceMult, 1.2) * range(s.rng, 0.6, 1.4);
+    s.spawnTimer = (base * night * ease * Math.pow(s.priceMult, 1.2) * range(s.rng, 0.6, 1.4)) / boosts(s).arrivals;
   }
 
   cmd(c: Command): CommandResult {
@@ -182,6 +184,8 @@ export class World {
         return fireStaff(this, c.id);
       case 'train':
         return trainStaff(this, c.id);
+      case 'research':
+        return chooseResearch(this, c.id);
       case 'setPriceMult':
         s.priceMult = Math.max(0.5, Math.min(2, c.value));
         return { ok: true };

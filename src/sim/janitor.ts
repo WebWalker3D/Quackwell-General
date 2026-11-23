@@ -23,6 +23,7 @@ import { goTo, moving, step, stop } from './move';
 import { int, rand, range } from './rng';
 import type { Item, Litter, Room, Staff, WorldState } from './state';
 import type { World } from './world';
+import { boosts } from './research';
 
 const MAX_LITTER = 200;
 
@@ -63,7 +64,7 @@ export function roomBroken(w: World, room: Room): boolean {
 
 /** Called after every completed service in a room. */
 export function wearMachines(w: World, room: Room) {
-  const k = w.state.research.done.includes('sturdyMachines') ? 0.5 : 1;
+  const k = boosts(w.state).wear;
   for (const m of machinesOf(w, room)) {
     if (m.broken) continue;
     m.wear = Math.min(100, m.wear + BALANCE.wearPerService * k);
