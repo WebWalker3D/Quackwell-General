@@ -40,8 +40,9 @@ no textbook has heard of, all inside a glossy miniature diorama rendered in real
 
 | | |
 |---|---|
-| ![A ward and the ballast booth up close](docs/images/closeup.jpg) | ![The hospital at night](docs/images/hospital-night.jpg) |
-| ![Looking north over the entrance](docs/images/north-view.jpg) | ![The welcome screen](docs/images/welcome.jpg) |
+| ![The title screen over a live hospital](docs/images/title.jpg) | ![The golden duck statue, a Research Lab and the Therapy Room](docs/images/closeup.jpg) |
+| ![Sunnyside Seaside's beach and palms](docs/images/sunnyside.jpg) | ![Frostmere Clinic in the snow](docs/images/frostmere.jpg) |
+| ![The hospital at night](docs/images/hospital-night.jpg) | |
 
 ## Playing
 

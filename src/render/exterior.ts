@@ -219,6 +219,8 @@ export class Exterior {
     this.theme = opts.theme;
     this.b = opts.building;
     HARD[0] = { x0: this.b.x - 0.6, z0: this.b.z - 0.6, x1: this.b.x + this.b.w + 0.6, z1: this.b.z + this.b.h + 0.6 };
+    // the sea: nothing grows below the beach's shoreline
+    if (this.theme === 'beach') HARD.push({ x0: -400, z0: -400, x1: 400, z1: this.b.z - 4.4 });
     this.poolMat = new THREE.MeshBasicMaterial({ map: radialTex(), color: '#ffc77a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     this.ground();
     this.roadAndPaths();

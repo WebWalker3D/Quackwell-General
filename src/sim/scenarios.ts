@@ -61,7 +61,7 @@ export const SCENARIOS: ScenarioDef[] = [
     stars: [
       [g('cured', 15, 'Cure 15 patients'), g('rep', 55, 'Reach 55 reputation')],
       [g('cured', 60, 'Cure 60 patients'), g('money', 120_000, 'Have $120,000 in the bank')],
-      [g('cured', 150, 'Cure 150 patients'), g('rep', 75, 'Reach 75 reputation'), g('research', 3, 'Finish 3 research projects')],
+      [g('cured', 200, 'Cure 200 patients'), g('rep', 75, 'Reach 75 reputation'), g('research', 3, 'Finish 3 research projects')],
     ],
   },
   {
@@ -106,7 +106,7 @@ export const SCENARIOS: ScenarioDef[] = [
     tagline: 'The big city. A huge building, every illness at once and inspectors with clipboards.',
     building: { x: 3, z: 2, w: 40, h: 26, entrance: E }, money: 150_000, reputation: 40,
     months: { heliumLungs: 0, frostbiteFever: 0, glowbelly: 1, staticCling: 1, bubbleTrouble: 1, echoItis: 2, backwardsWalking: 3, ghosting: 3 },
-    spawnMult: 1.4, eventEvery: [0.8, 1.4], emergencyChance: 0.45,
+    spawnMult: 1.25, eventEvery: [0.8, 1.4], emergencyChance: 0.45,
     stars: [
       [g('cured', 40, 'Cure 40 patients'), g('rep', 55, 'Reach 55 reputation')],
       [g('cured', 150, 'Cure 150 patients'), g('inspection', 4, 'Get a 4-star inspection')],
