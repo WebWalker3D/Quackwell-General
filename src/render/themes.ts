@@ -219,7 +219,7 @@ function beach(group: THREE.Group, b: BuildingRect, overlaps: Overlaps): ThemeEx
   for (const p of propSpots(b, r, 10, 5, 14)) {
     if (overlaps(p.x - 2, p.y - 2, p.x + 2, p.y + 2) || p.y < shore + 1) continue;
     const g = new THREE.Group();
-    g.add(new THREE.Mesh(new RoundedBoxGeometry(2, 2, 1.8, 2, 0.08), plastic(hutCols[(p.x | 0) % hutCols.length], 0.6, 0.3)).translateY(1));
+    g.add(new THREE.Mesh(new RoundedBoxGeometry(2, 2, 1.8, 2, 0.08), plastic(hutCols[Math.abs(p.x | 0) % hutCols.length], 0.6, 0.3)).translateY(1));
     const roof = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.9, 4), plastic('#ffffff', 0.5, 0.4));
     roof.position.y = 2.45;
     roof.rotation.y = Math.PI / 4;
@@ -287,7 +287,7 @@ function city(group: THREE.Group, b: BuildingRect, overlaps: Overlaps): ThemeExt
     const body = new THREE.Mesh(geo, towerMat);
     body.position.y = h / 2;
     g.add(body);
-    g.add(new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.4, d + 0.3), plastic(tints[(p.x | 0) % tints.length], 0.6, 0.3)).translateY(h + 0.2));
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.4, d + 0.3), plastic(tints[Math.abs(p.x | 0) % tints.length], 0.6, 0.3)).translateY(h + 0.2));
     g.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.2), metal('#aab4c0', 0.4)).translateY(h + 0.8).translateX(w / 4));
     if (r() > 0.5) g.add(new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), glow('#ff3040', 6)).translateY(h + 1.6));
     g.position.set(p.x, 0, p.y);
