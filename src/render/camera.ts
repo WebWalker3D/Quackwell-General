@@ -60,6 +60,12 @@ export class CameraRig {
     if (dist) this.goalDist = dist;
   }
 
+  /** slow title-screen orbit */
+  spin(dt: number) {
+    this.goalYaw += dt * 0.07;
+    this.yaw = this.goalYaw;
+  }
+
   shake(a: number) {
     this.shakeAmt = Math.min(0.6, this.shakeAmt + a);
   }

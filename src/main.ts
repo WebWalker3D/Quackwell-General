@@ -38,7 +38,8 @@ import { Input } from './ui/input';
 import { Hud } from './ui/hud';
 import { Sfx } from './audio/sfx';
 import { deserialize, serialize } from './sim/save';
-import { createScenarioState } from './sim/scenarios';
+import { SCENARIOS, createScenarioState, isScenarioUnlocked, recordStars, scenarioById } from './sim/scenarios';
+import { Menu, loadProgress, saveProgress } from './ui/menu';
 import { readSave, writeSave, type Slot } from './ui/storage';
 import { calendar, monthLabel } from './sim/economy';
 import { startEmergency, startInspection } from './sim/happenings';
@@ -48,9 +49,10 @@ const params = new URLSearchParams(location.search);
 const app = document.getElementById('app')!;
 const engine = new Engine(app, (params.get('q') as Quality) || undefined);
 const demo = params.get('demo');
+const menuMode = !demo && !params.has('play') && !params.has('load');
 let loadError = '';
 function bootWorld(): World {
-  if (demo === '1') return createDemoWorld();
+  if (demo === '1' || menuMode) return createDemoWorld();
   const slot = params.get('load');
   if (slot) {
     const raw = readSave(slot);
@@ -98,7 +100,7 @@ if (demo === 'items') {
 const sfx = new Sfx();
 const ghost = new Ghost(engine.scene);
 const input = new Input(engine, world, ghost);
-let speed = params.has('speed') ? Number(params.get('speed')) : demo ? 1 : 0;
+let speed = params.has('speed') ? Number(params.get('speed')) : demo || menuMode ? 1 : 0;
 let lastSpeed = 1;
 const setSpeed = (s: number) => { if (s > 0) lastSpeed = s; speed = s; };
 input.onSpeedKey = (s) => setSpeed(s === 'toggle' ? (speed > 0 ? 0 : lastSpeed) : s);
@@ -112,20 +114,37 @@ const hud = new Hud(world, {
   save: (slot: Slot) => saveTo(slot),
   load: (slot: Slot) => { location.href = `${location.pathname}?load=${slot}&nowelcome`; },
   toMenu: () => { saveTo('auto'); location.href = location.pathname; },
+  toScenario: (id: string) => { saveTo('auto'); location.href = `${location.pathname}?play=${id}`; },
 });
+if (menuMode) {
+  document.getElementById('ui')!.style.display = 'none';
+  input.enabled = false;
+  engine.rig.focus(22, 17, 46);
+  new Menu((n) => sfx.play(n));
+}
+function onStar(stars: number, scenario: string) {
+  if (demo || menuMode || world.state.sandbox) return;
+  const progress = recordStars(loadProgress(), scenario, stars);
+  saveProgress(progress);
+  const i = SCENARIOS.findIndex((x) => x.id === scenario);
+  const nextDef = SCENARIOS[i + 1];
+  const next = nextDef && isScenarioUnlocked(progress, nextDef.id) ? { id: nextDef.id, name: nextDef.name } : null;
+  hud.showStar(stars, next);
+}
 function saveLabel() {
   const cal = calendar(world.state.t);
-  return `Day ${cal.day}, ${monthLabel(cal.monthIndex)}, $${Math.round(world.state.money).toLocaleString()}`;
+  const where = `${scenarioById(world.state.scenario).name}${world.state.sandbox ? ' (sandbox)' : ''}`;
+  return `${where}: day ${cal.day}, ${monthLabel(cal.monthIndex)}, $${Math.round(world.state.money).toLocaleString()}`;
 }
 function saveTo(slot: Slot) {
-  if (demo) return false;
+  if (demo || menuMode) return false;
   return writeSave(slot, serialize(world), saveLabel());
 }
 if (loadError) hud.toast(loadError, 'bad');
 let lastSavedDay = Math.floor(world.state.t / 90);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveTo('auto'); });
 window.addEventListener('pagehide', () => saveTo('auto'));
-if (!demo && !params.has('nowelcome') && !params.has('load')) hud.welcome();
+if (!demo && !menuMode && !params.has('nowelcome') && !params.has('load')) hud.welcome();
 if (params.has('load') && !loadError) setTimeout(() => { speed = 1; }, 0);
 if (params.get('ui') === '0') document.getElementById('ui')!.style.visibility = 'hidden';
 if (params.has('tray')) hud.toggleTray(params.get('tray') as 'rooms');
@@ -141,6 +160,8 @@ function frame(now: number) {
   last = now;
   const alpha = loop.advance(dt, speed);
   const events = world.drainEvents();
+  for (const e of events) if (e.type === 'star') onStar(e.stars, e.scenario);
+  if (menuMode) engine.rig.spin(dt);
   const today = Math.floor(world.state.t / 90);
   if (today !== lastSavedDay) { lastSavedDay = today; saveTo('auto'); }
   view.handle(events);

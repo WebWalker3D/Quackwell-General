@@ -233,3 +233,56 @@ button.card.on { background: var(--mint); outline: 3px solid var(--teal); }
   .tray, .toast, .banner.urgent { animation: none; }
   .capsule, button.card { transition: none; }
 }
+
+/* ---------- main menu ---------- */
+.menu { position: fixed; inset: 0; z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 520px); align-items: center; gap: 24px; padding: 32px 48px; pointer-events: none; font-family: var(--body); color: var(--ink); user-select: none; }
+.menu button, .menu a { pointer-events: auto; }
+.menu-title h1 {
+  font-family: var(--display); font-weight: 800; font-size: clamp(56px, 8vw, 112px); line-height: 0.86; margin: 0; color: var(--sun);
+  -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; text-shadow: 0 8px 0 var(--ink);
+}
+.menu-title p { font-family: var(--display); font-size: 24px; font-weight: 700; color: #fff; -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; margin: 18px 0 0; }
+.menu-card { pointer-events: auto; background: var(--paper); border: var(--outline); border-radius: 26px; box-shadow: 0 8px 0 var(--ink); padding: 22px 24px; }
+.menu-card.main { display: flex; flex-direction: column; gap: 12px; }
+.menu-card.wide, .menu-card.intro { grid-column: 1 / -1; justify-self: center; width: min(980px, 100%); }
+.menu-card h2 { font-family: var(--display); font-size: 34px; margin: 0; }
+.menu-card .sub { margin: 2px 0 14px; color: var(--ink-soft); font-weight: 600; }
+.menu-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 12px 18px; border: 3px solid var(--ink); border-radius: 18px; background: #fff; box-shadow: 0 4px 0 var(--ink); cursor: pointer; font-family: var(--body); color: var(--ink); transition: transform .08s ease; }
+.menu-btn b { font-family: var(--display); font-size: 26px; line-height: 1.1; }
+.menu-btn span { font-weight: 700; color: var(--ink-soft); }
+.menu-btn.primary { background: var(--teal); color: #fff; }
+.menu-btn.primary span { color: #e6fffb; }
+.menu-btn:hover { transform: translateY(-2px); }
+.menu-btn:focus-visible, .level:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.level { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 12px; border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); background: #fff; cursor: pointer; font-family: var(--body); color: var(--ink); min-height: 190px; }
+.level b { font-family: var(--display); font-size: 19px; line-height: 1.1; }
+.level .lv-tag { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.level:disabled { opacity: 0.55; cursor: not-allowed; }
+.level.meadow { background: linear-gradient(#fff, #e7f8dc); }
+.level.snow { background: linear-gradient(#fff, #e6f1fb); }
+.level.beach { background: linear-gradient(#fff, #fff2d1); }
+.level.industrial { background: linear-gradient(#fff, #ece7e2); }
+.level.city { background: linear-gradient(#fff, #e6e9f5); }
+.lv-icon { font-size: 34px; }
+.lv-icon.big { font-size: 56px; }
+.stars.big { font-size: 22px; }
+.intro-head { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; }
+.goal-list { list-style: none; padding: 0; margin: 14px 0 18px; display: flex; flex-direction: column; gap: 8px; }
+.goal-list li { display: flex; gap: 12px; align-items: baseline; font-weight: 700; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 14px; background: #fff; }
+.goal-list li.done { background: var(--mint); }
+.goal-list .stars { min-width: 58px; }
+.menu .credit { margin-top: 6px; }
+@media (max-width: 760px) { .menu { grid-template-columns: 1fr; padding: 16px; } .menu-title h1 { font-size: 52px; } }
+
+/* in-game star goals */
+.goals .goal { display: block; padding: 4px 0; font-weight: 700; font-size: 14px; }
+.goals .goal .gbar { display: block; height: 8px; border: 2px solid var(--ink); border-radius: 99px; background: #fff; overflow: hidden; margin-top: 3px; }
+.goals .goal .gbar i { display: block; height: 100%; background: var(--sun); }
+.goals .goal.met { color: var(--ink-soft); }
+.goals .goal.met .gbar i { background: var(--ok); }
+.goals .starline { font-size: 20px; margin: -2px 0 4px; }
+.goals h4 { margin: 10px 0 2px; font-family: var(--display); font-size: 15px; }
+.star-modal .bigstars { font-size: 64px; letter-spacing: 6px; color: var(--sun); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; margin: 4px 0 8px; animation: starpop .6s cubic-bezier(.2,1.8,.4,1); }
+@keyframes starpop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .star-modal .bigstars { animation: none; } }

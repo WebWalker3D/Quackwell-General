@@ -38,6 +38,8 @@ const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 /** Translates pointer/keyboard input into tool previews and sim commands. */
 export class Input {
   tool: Tool = { kind: 'select' };
+  /** false on the title screen */
+  enabled = true;
   selection: Selection = null;
   hintText = '';
   hintBad = false;
@@ -106,7 +108,7 @@ export class Input {
   }
 
   private key(e: KeyboardEvent) {
-    if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+    if (!this.enabled || (e.target as HTMLElement)?.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
     if (k === 'escape') {
       if (this.tool.kind === 'room' && (this.roomRect || this.drag)) { this.drag = null; this.roomRect = null; this.door = null; this.ghost.hide(); this.refreshHint(); return; }
@@ -136,6 +138,7 @@ export class Input {
   }
 
   private pointerDown(e: PointerEvent) {
+    if (!this.enabled) return;
     this.down = { x: e.clientX, y: e.clientY, button: e.button };
     if (e.button !== 0) return;
     if (this.tool.kind === 'room' && !this.roomRect) {
@@ -387,6 +390,7 @@ export class Input {
   }
 
   update(t: number) {
+    if (!this.enabled) return;
     this.ghost.update(1 / 60);
     // selection ring follows characters; rooms/items get an outline via the ghost
     const s = this.selection;

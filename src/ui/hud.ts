@@ -30,6 +30,7 @@ import { RESEARCH, availableResearch, researchDef } from '../sim/research';
 import { TRAIN_COST_PER_STAR, XP_PER_STAR } from '../sim/staff';
 import { SLOTS, saveMeta, type Slot } from './storage';
 import { DAY } from '../sim/economy';
+import { goalId, goalValue, scenarioById } from '../sim/scenarios';
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -77,6 +78,7 @@ export interface HudDeps {
   save: (slot: Slot) => boolean;
   load: (slot: Slot) => void;
   toMenu: () => void;
+  toScenario: (id: string) => void;
 }
 
 export class Hud {
@@ -148,11 +150,16 @@ export class Hud {
   }
 
   welcome() {
+    const sc = scenarioById(this.world.state.scenario);
+    const sandbox = this.world.state.sandbox;
+    const intro = sandbox ? 'Sandbox: a million dollars, everything unlocked, no goals. Go wild.' : `${sc.tagline} You start with ${money(this.world.state.money)}.`;
+    const firstStar = sandbox ? '' : `<p><b>For your first star:</b> ${sc.stars[0].map((g) => g.text.toLowerCase()).join(' and ')}.</p>`;
     const w = document.createElement('div');
     w.className = 'welcome';
     w.innerHTML = `<div class="card" role="dialog" aria-labelledby="wt">
-      <h1 id="wt">Quackwell General</h1>
-      <p>The town's newest hospital is an empty shell, a fountain and $80,000. Patients are already queuing up with conditions no textbook has heard of.</p>
+      <h1 id="wt">${sc.name}</h1>
+      <p>${intro}</p>
+      ${firstStar}
       <ul>
         <li>Drag with the right mouse button, or use WASD, to move around</li>
         <li>Scroll to zoom; Q and E rotate the view</li>
@@ -171,7 +178,7 @@ export class Hud {
 
   /** Esc with nothing else to cancel opens the pause menu. */
   private escCapture(e: KeyboardEvent) {
-    if (e.key !== 'Escape') return;
+    if (e.key !== 'Escape' || this.root.style.display === 'none') return;
     if (this.pauseEl) { this.closePause(); e.stopImmediatePropagation(); return; }
     if (this.root.querySelector('.welcome, .modal')) return;
     if (this.tray || this.d.input.tool.kind !== 'select' || this.d.input.selection) return;
@@ -243,7 +250,7 @@ export class Hud {
   }
 
   private key(e: KeyboardEvent) {
-    if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+    if (this.root.style.display === 'none' || (e.target as HTMLElement)?.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
     const map: Record<string, TrayName> = { b: 'rooms', n: 'items', h: 'staff', l: 'research', j: 'hospital' };
     if (map[k]) this.toggleTray(map[k]);
@@ -278,6 +285,7 @@ export class Hud {
     if (ds.load) this.d.load(ds.load as Slot);
     if (ds.act === 'resume') this.closePause();
     if (ds.act === 'menu') this.d.toMenu();
+    if (ds.next) this.d.toScenario(ds.next);
     if (ds.act === 'closeAwards') { (t.closest('.modal') as HTMLElement)?.remove(); this.d.setSpeed(this.resumeSpeed || 1); }
     if (ds.hire) {
       const r = this.world.cmd({ type: 'hire', candidateId: Number(ds.hire) });
@@ -568,17 +576,57 @@ export class Hud {
 
   private renderGoals() {
     const s = this.world.state;
-    let html = `<button class="collapse" data-act="goals" aria-label="Collapse goals">–</button><h3>First things first</h3><ul>`;
-    let shown = 0;
-    GOALS.forEach((g, i) => {
-      const done = !!s.hints[`goal:${i}`];
-      if (done || shown < 6) {
-        html += `<li class="${done ? 'done' : ''}"><span class="box" aria-hidden="true">${done ? '✓' : ''}</span>${g.text}</li>`;
-        if (!done) shown++;
+    const sc = scenarioById(s.scenario);
+    let html = `<button class="collapse" data-act="goals" aria-label="Collapse goals">–</button>`;
+    if (s.sandbox) {
+      html += `<h3>Sandbox</h3><p class="desc" style="font-size:13px;font-weight:600;color:var(--ink-soft)">No goals here. Build whatever you like.</p>`;
+    } else {
+      const next = Math.min(s.stars, 2);
+      html += `<h3>${sc.name}</h3><div class="starline stars" aria-label="${s.stars} of 3 stars">${'★'.repeat(s.stars)}<span class="off">${'★'.repeat(3 - s.stars)}</span></div>`;
+      if (s.stars < 3) {
+        html += `<h4>For ${'★'.repeat(next + 1)}</h4>`;
+        sc.stars[next].forEach((g, i) => {
+          const met = s.goals[goalId(sc.id, next, i)] !== undefined;
+          const v = goalValue(s, g);
+          const pct = met ? 100 : Math.max(0, Math.min(100, (v / g.target) * 100));
+          const shown = g.kind === 'money' ? `$${Math.round(Math.min(v, g.target)).toLocaleString()}` : String(Math.floor(Math.min(v, g.target)));
+          const target = g.kind === 'money' ? `$${g.target.toLocaleString()}` : String(g.target);
+          const count = g.target > 1 && g.kind !== 'room' ? ` <small>${shown} / ${target}</small>` : '';
+          html += `<span class="goal ${met ? 'met' : ''}">${met ? '✓ ' : ''}${g.text}${count}<span class="gbar"><i style="width:${pct.toFixed(0)}%"></i></span></span>`;
+        });
+      } else html += `<p class="desc" style="font-size:13px;font-weight:700">Three stars! This town is in excellent hands.</p>`;
+    }
+    if (s.scenario === 'quackwell' && !s.sandbox) {
+      const open = GOALS.map((g, i) => ({ g, i, done: !!s.hints[`goal:${i}`] })).filter((x) => !x.done);
+      if (open.length && open.length > GOALS.length - 9) {
+        html += `<h4>Getting started</h4><ul>`;
+        for (const x of open.slice(0, 4)) html += `<li><span class="box" aria-hidden="true"></span>${x.g.text}</li>`;
+        html += '</ul>';
       }
-    });
-    html += '</ul>';
+    }
     if (this.el.goals.innerHTML !== html) this.el.goals.innerHTML = html;
+  }
+
+  showStar(stars: number, next: { id: string; name: string } | null) {
+    this.d.sfx.play('fanfare');
+    this.resumeSpeed = this.d.getSpeed() || 1;
+    this.d.setSpeed(0);
+    const sc = scenarioById(this.world.state.scenario);
+    const el = document.createElement('div');
+    el.className = 'welcome modal star-modal';
+    const title = stars === 3 ? 'Three stars!' : stars === 2 ? 'Two stars!' : 'A star!';
+    const line = stars === 3 ? 'is the best hospital in the land.' : 'is going from strength to strength.';
+    const opened = next && stars === 1 ? ` ${next.name} is now open in the campaign.` : '';
+    el.innerHTML = `<div class="card" role="dialog" aria-labelledby="st"><h1 id="st">${title}</h1>
+      <div class="bigstars" aria-hidden="true">${'★'.repeat(stars)}<span style="color:#dde6ef">${'★'.repeat(3 - stars)}</span></div>
+      <p>${sc.name} ${line}${opened}</p>
+      <div class="row">
+        <button class="btn" data-act="closeAwards">Keep playing</button>
+        ${next ? `<button class="btn quiet" data-next="${next.id}">Go to ${next.name}</button>` : ''}
+        <button class="btn quiet" data-act="menu">Main menu</button>
+      </div></div>`;
+    this.root.appendChild(el);
+    el.querySelector<HTMLButtonElement>('button')!.focus();
   }
 
   private checkGoals() {

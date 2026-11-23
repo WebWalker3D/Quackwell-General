@@ -1,6 +1,6 @@
 # Quackwell General
 
-A hospital management sim with toy-box graphics. You build rooms, hire staff and cure the town of illnesses
+A hospital management sim with toy-box graphics. You build rooms, hire staff and cure five towns of illnesses
 no textbook has heard of, all inside a glossy miniature diorama rendered in real time in your browser.
 
 ![The hospital at work on a sunny afternoon](docs/images/hospital-day.jpg)
@@ -19,6 +19,13 @@ no textbook has heard of, all inside a glossy miniature diorama rendered in real
 - A Research Lab works through projects that unlock new rooms (Therapy Room), new items (Arcade Cabinet, Golden Duck Statue) and hospital-wide upgrades.
 - Ambulance emergencies with a deadline and a bonus, surprise health inspections, and awards at the end of every year.
 - Autosave every in-game day, plus three save slots in the pause menu.
+- A campaign of five hospitals, each with its own building, illness mix and three star goals. One star opens the next town:
+  - **Quackwell General** is a meadow town where you learn the ropes.
+  - **Frostmere Clinic** is a cramped clinic in endless snow.
+  - **Sunnyside Seaside** sits on a beach full of tourists, and the ambulance never stops.
+  - **Voltwick Works** is a factory town where the board wants research.
+  - **Grand Duckington** is the big city, with a huge building and every illness at once.
+- Sandbox mode: any unlocked town with a million dollars, everything unlocked and no goals.
 
 **The graphics**
 
@@ -28,6 +35,8 @@ no textbook has heard of, all inside a glossy miniature diorama rendered in real
 - Walls cut away automatically as you rotate the camera, and characters show as silhouettes behind them.
 - Confetti, spinning coins and floating cash on every cure. Room walls spring up and furniture drops in with a bounce.
 - Every texture, model and sound is generated in code, with no downloaded assets. That includes a background tune that composes itself.
+- Each town has its own scenery: meadows and blossom trees, snowbanks and snowmen, a beach with palms and a rolling ocean, smoking factory chimneys, and city towers whose windows light up at night.
+- The title screen orbits a live, busy hospital.
 
 | | |
 |---|---|
@@ -43,7 +52,8 @@ npm install
 npm run dev
 ```
 
-Then open the address it prints, usually http://localhost:5173.
+Then open the address it prints, usually http://localhost:5173. The title screen has Continue, Campaign and Sandbox.
+Campaign progress and saves live in your browser's local storage.
 
 | Action | Control |
 |---|---|
@@ -87,6 +97,8 @@ These URL flags are handy with them:
 
 | Flag | Effect |
 |---|---|
+| `?play=<town>` | Start a town directly: `quackwell`, `frostmere`, `sunnyside`, `voltwick`, `duckington`. Add `&sandbox` for sandbox mode |
+| `?load=auto` (or `1`, `2`, `3`) | Load a save slot |
 | `?demo=1` | A busy showcase hospital |
 | `?demo=items` | Every item side by side |
 | `&t=0.95` | Night |
@@ -100,7 +112,8 @@ These URL flags are handy with them:
 ## Roadmap
 
 - **Milestone 2 (done):** staff needs and training, janitors, machine wear, research, emergencies, inspections, awards, saving and loading.
-- **Milestone 3:** a campaign of hospitals with star goals, unlocks and a sandbox mode.
+- **Milestone 3 (done):** a campaign of five themed hospitals with star goals, a sandbox mode and a title screen.
+- **Next:** more illnesses and rooms, staff traits that matter more, a hosted build to play in the browser.
 
 ## License
 
