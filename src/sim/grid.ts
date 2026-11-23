@@ -121,6 +121,15 @@ export const LOT_H = 40;
 /** The hospital lot: lawn + road around a 28×22 building shell with a south entrance. */
 export function createLot(): Grid {
   const g = new Grid(LOT_W, LOT_H);
+  applyShell(g);
+  return g;
+}
+
+/** Reset rooms/blocks/walls and lay down the building's outer walls. */
+export function applyShell(g: Grid) {
+  g.walls.clear();
+  g.roomAt.fill(-1);
+  g.blocked.fill(0);
   const b: BuildingRect = { x: 8, z: 6, w: 28, h: 22, entrance: { x: 21, z: 27 } };
   g.building = b;
   const x1 = b.x + b.w - 1;
@@ -138,5 +147,4 @@ export function createLot(): Grid {
     g.setWall(b.x, z, 'W', { kind: 'outer', door: false, window: win });
     g.setWall(x1, z, 'E', { kind: 'outer', door: false, window: win });
   }
-  return g;
 }
