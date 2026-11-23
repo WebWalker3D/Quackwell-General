@@ -36,6 +36,9 @@ export type SimEvent =
   | { type: 'repaired'; itemId: number }
   | { type: 'cleaned'; x: number; z: number }
   | { type: 'researched'; id: string }
+  | { type: 'eventStart'; kind: 'emergency' | 'inspection'; text: string }
+  | { type: 'eventEnd'; kind: 'emergency' | 'inspection'; success: boolean; stars?: number; text: string }
+  | { type: 'awards'; year: number; won: string[]; lost: string[]; bonus: number }
   | { type: 'fired'; id: number }
   | { type: 'service'; roomId: number; patientId: number; phase: 'start' | 'end' }
   | { type: 'toast'; text: string; tone: 'info' | 'warn' | 'good' | 'bad' }

@@ -34,7 +34,7 @@ import { boosts } from './research';
 import type { Pt } from './path';
 import type { World } from './world';
 
-export interface SpawnOpts { at?: Pt }
+export interface SpawnOpts { at?: Pt; emergency?: boolean; vip?: boolean }
 
 const OPP: Record<Dir, Dir> = { N: 'S', S: 'N', E: 'W', W: 'E' };
 const LEFT: Record<Dir, Dir> = { N: 'W', W: 'S', S: 'E', E: 'N' };
@@ -70,6 +70,8 @@ export function spawnPatient(w: World, illness?: IllnessType, opts: SpawnOpts = 
     gpVisits: 0, scans: 0, state: 'arriving', need: null, target: -1, desk: -1, timer: 0, cured: false,
     leaveReason: '', thought: '', waitedFor: 0, arrivedAt: s.t, emergency: false, vip: false, litterT: range(s.rng, 60, 200),
   };
+  if (opts.emergency) { p.emergency = true; p.diagnosed = true; p.certainty = 0.9; }
+  if (opts.vip) { p.vip = true; p.cured = true; p.patience = 1e9; p.speed = 1.2; }
   s.patients.push(p);
   const e = w.grid.building.entrance;
   goTo(w.grid, p, e.x + int(s.rng, 0, 1) + 0.5, e.z + 0.5);
@@ -81,7 +83,7 @@ export function spawnPatient(w: World, illness?: IllnessType, opts: SpawnOpts = 
 
 let comfortCache: { ver: number; n: number; map: Float32Array } | null = null;
 /** 0..0.4 comfort per tile from nearby decor and warmth. */
-function comfortAt(w: World, x: number, z: number) {
+export function comfortAt(w: World, x: number, z: number) {
   const g = w.grid;
   if (!comfortCache || comfortCache.ver !== g.version || comfortCache.n !== w.state.items.length) {
     const map = new Float32Array(g.w * g.h);
@@ -187,8 +189,36 @@ function seekRoom(w: World, p: Patient) {
       (Math.abs(r.door.x - p.x) + Math.abs(r.door.z - p.z)) / 15;
     if (score < bestS) { bestS = score; best = r; }
   }
-  best.queue.push(p.id);
+  if (p.emergency) {
+    // emergencies go in behind other emergencies, ahead of everyone else
+    let i = 0;
+    while (i < best.queue.length && w.patient(best.queue[i])?.emergency) i++;
+    best.queue.splice(i, 0, p.id);
+  } else best.queue.push(p.id);
   p.target = best.id;
+}
+
+/** The inspector strolls between room doors until the inspection ends. */
+function updateVip(w: World, p: Patient, dt: number) {
+  if (p.state === 'arriving') {
+    if (step(w.grid, p, dt) || !p.dest) { p.state = 'waiting'; p.timer = 1; stop(p); }
+    return;
+  }
+  if (moving(p)) { step(w.grid, p, dt); return; }
+  p.timer -= dt;
+  if (p.timer > 0) return;
+  p.timer = range(w.state.rng, 2.5, 5);
+  const rooms = w.state.rooms;
+  if (rooms.length && chance(w.state.rng, 0.75)) {
+    const r = rooms[int(w.state.rng, 0, rooms.length - 1)];
+    const v = DIR_VEC[r.door.dir];
+    goTo(w.grid, p, r.door.x + v.dx + 0.5, r.door.z + v.dz + 0.5);
+    p.face = Math.atan2(-v.dx, -v.dz);
+  } else {
+    const b = w.grid.building;
+    const x = b.x + int(w.state.rng, 0, b.w - 1), z = b.z + int(w.state.rng, 0, b.h - 1);
+    if (w.grid.isCorridor(x, z) && !w.grid.isBlocked(x, z)) goTo(w.grid, p, x + 0.5, z + 0.5);
+  }
 }
 
 function needHint(w: World, need: RoomType) {
@@ -348,6 +378,7 @@ function completeService(w: World, p: Patient, room: Room, skill: number, trait:
     adjustRep(s, BALANCE.repCured * (2 - s.priceMult));
     w.emit({ type: 'cured', id: p.id, x: p.x, z: p.z, fee });
     p.leaveReason = 'cured';
+    if (p.emergency && s.event?.kind === 'emergency' && s.event.ids.includes(p.id)) s.event.cured++;
   } else {
     s.stats.failed++;
     s.monthStats.failed++;
@@ -412,11 +443,13 @@ export function updatePatients(w: World, dt: number) {
   const s = w.state;
   const slotCache = new Map<number, Pt[]>();
   for (const p of s.patients) {
+    if (p.vip && p.state !== 'leaving' && p.state !== 'gone') { updateVip(w, p, dt); continue; }
     p.thirst = Math.min(100, p.thirst + dt * THIRST_RATE);
     switch (p.state) {
       case 'arriving':
         if (step(w.grid, p, dt) || !p.dest) {
-          if (!joinDesk(w, p)) p.state = 'queueReception';
+          if (p.emergency) p.state = 'seekRoom';
+          else if (!joinDesk(w, p)) p.state = 'queueReception';
         }
         break;
 

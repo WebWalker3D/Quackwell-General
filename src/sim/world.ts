@@ -28,6 +28,7 @@ import { releasePatientsFrom, spawnPatient, updatePatients, updateRooms, type Sp
 import { BALANCE, ILLNESSES, type IllnessType } from './catalog';
 import { stop } from './move';
 import { boosts, chooseResearch, updateResearch } from './research';
+import { giveAwards, updateHappenings } from './happenings';
 
 export interface WorldOptions {
   /** spawn patients automatically (default true) */
@@ -96,6 +97,7 @@ export class World {
     updateResearch(this, dt);
     updateRooms(this, dt);
     updatePatients(this, dt);
+    updateHappenings(this, dt);
     s.patients = s.patients.filter((p) => p.state !== 'gone');
   }
 
@@ -107,7 +109,13 @@ export class World {
     const salaries = s.staff.reduce((a, st) => a + st.salary, 0);
     s.money -= salaries;
     s.stats.spent += salaries;
+    const y = s.yearStats, m = s.monthStats;
+    y.cured += m.cured; y.failed += m.failed; y.left += m.left; y.visits += m.visits; y.earned += m.earned; y.spent += m.spent + salaries;
     s.monthStats = emptyStats();
+    if (cal.monthIndex % 12 === 0) {
+      giveAwards(this, cal.year - 1);
+      s.yearStats = emptyStats();
+    }
     s.reputation += (50 - s.reputation) * BALANCE.repDrift;
     genCandidates(this);
     this.emit({ type: 'month', salaries, label: monthLabel(cal.monthIndex) });

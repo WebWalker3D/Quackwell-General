@@ -147,8 +147,8 @@ export interface Litter { id: number; x: number; z: number; kind: 'can' | 'wrapp
 export interface ResearchState { points: number; current: string | null; done: string[] }
 
 export type ActiveEvent =
-  | { kind: 'emergency'; illness: string; ids: number[]; endsAt: number; needed: number; reward: number }
-  | { kind: 'inspection'; vipId: number; endsAt: number; samples: number; cleanSum: number; queueSum: number };
+  | { kind: 'emergency'; illness: string; ids: number[]; endsAt: number; needed: number; reward: number; cured: number }
+  | { kind: 'inspection'; vipId: number; endsAt: number; samples: number; cleanSum: number; queueSum: number; decorSum: number; brokenSum: number; sampleT: number };
 
 export interface WorldState {
   money: number;
