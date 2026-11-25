@@ -117,7 +117,12 @@ export class Hud {
       <div class="banner" data-k="banner" hidden></div>
       <div class="toasts" data-k="toasts"></div>
       <div class="hint" data-k="hint" hidden></div>
+      <div class="camctl" aria-label="Rotate the view">
+        <button data-act="rotL" aria-label="Rotate the view left">⟲</button>
+        <button data-act="rotR" aria-label="Rotate the view right">⟳</button>
+      </div>
       <div class="tray" data-k="tray" hidden></div>
+      <nav class="touchbar" data-k="touchbar" aria-label="Building" hidden></nav>
       <nav class="toolbar" aria-label="Build tools">
         ${this.capsule('rooms', '🏥', 'Rooms', '#19a7a0', '#e9fbf8', 'B')}
         ${this.capsule('items', '🪴', 'Items', '#ff5c8a', '#fff0f4', 'N')}
@@ -136,7 +141,10 @@ export class Hud {
     d.input.onToolChange.push(() => this.syncToolButtons());
     d.input.onSelect.push(() => { this.inspectorHtml = ''; this.renderInspector(); });
     d.input.onToast = (t, tone) => this.toast(t, tone);
+    // small screens start with the goals folded down to the scenario name and stars
+    if (matchMedia('(max-width: 760px), (max-height: 520px)').matches) this.el.goals.classList.add('min');
     this.renderGoals();
+    document.addEventListener('fullscreenchange', () => { if (this.tray === 'settings') this.renderTray(true); });
   }
 
   setWorld(w: World) {
@@ -161,12 +169,17 @@ export class Hud {
       <h1 id="wt">${sc.name}</h1>
       <p>${intro}</p>
       ${firstStar}
-      <ul>
+      ${this.d.input.touch ? `<ul>
+        <li>Drag a finger to move around; pinch to zoom</li>
+        <li>Twist two fingers, or use ⟲ ⟳, to rotate the view</li>
+        <li>Tap anyone or anything to see how they are doing</li>
+        <li>Tap the clipboard at the top left for your goals</li>
+      </ul>` : `<ul>
         <li>Drag with the right mouse button, or use WASD, to move around</li>
         <li>Scroll to zoom; Q and E rotate the view</li>
         <li>Space pauses; 1, 2 and 3 set the speed</li>
         <li>The clipboard on the left lists your first goals</li>
-      </ul>
+      </ul>`}
       <button class="btn" data-act="start">Open the doors</button>
       ${creditHtml()}
     </div>`;
@@ -312,7 +325,17 @@ export class Hud {
       const r = this.world.cmd(kind === 'room' ? { type: 'sellRoom', id: Number(ds.id) } : { type: 'sellItem', id: Number(ds.id) });
       if (r.ok) { this.d.sfx.play('whoosh'); this.d.input.select(null); }
     }
-    if (ds.act === 'goals') this.el.goals.classList.toggle('min');
+    if (ds.act === 'goals') { this.el.goals.classList.toggle('min'); this.renderGoals(); }
+    if (ds.act === 'rotL' || ds.act === 'rotR') { this.d.engine.rig.rotate(ds.act === 'rotL' ? -1 : 1); this.d.sfx.play('click'); }
+    if (ds.act === 'pause') { this.closeTray(); this.openPause(); }
+    if (ds.act === 'fullscreen') {
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void document.documentElement.requestFullscreen().catch(() => this.toast('This browser would not go full screen.', 'warn'));
+    }
+    if (ds.act === 'tbRotate') this.d.input.rotateItem();
+    if (ds.act === 'tbConfirm') this.d.input.confirm();
+    if (ds.act === 'tbRedraw') this.d.input.redrawRoom();
+    if (ds.act === 'tbDone') this.d.input.setTool({ kind: 'select' });
     if (ds.act === 'newgame') { if (confirm('Start a new hospital? Your current one will be lost.')) this.d.newGame(); }
   }
 
@@ -332,6 +355,7 @@ export class Hud {
     if (this.d.input.tool.kind !== 'select') this.d.input.setTool({ kind: 'select' });
     this.renderTray(true);
     this.el.tray.hidden = false;
+    this.el.tray.scrollTop = 0;
     this.syncToolButtons();
     this.d.sfx.play('click');
   }
@@ -346,6 +370,26 @@ export class Hud {
     this.root.querySelectorAll<HTMLButtonElement>('[data-tray]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tray === this.tray)));
     const sell = this.root.querySelector<HTMLButtonElement>('[data-tool="sell"]');
     sell?.setAttribute('aria-pressed', String(this.d.input.tool.kind === 'sell'));
+    this.renderTouchbar();
+  }
+
+  private touchbarHtml = '';
+
+  /** Touch screens have no hover, R key or right-click: the active tool's actions live on this bar instead. */
+  private renderTouchbar() {
+    const input = this.d.input;
+    const stage = input.touch ? input.touchStage() : null;
+    this.root.classList.toggle('tooling', !!stage);
+    const bar = this.el.touchbar;
+    if (!stage) { bar.hidden = true; this.touchbarHtml = ''; return; }
+    const btn = (act: string, label: string, cls = '', disabled = false) => `<button class="btn ${cls}" data-act="${act}" ${disabled ? 'disabled' : ''}>${label}</button>`;
+    let html = '';
+    if (stage === 'item') html = btn('tbRotate', '⟳ Rotate', 'quiet') + btn('tbConfirm', '✓ Place', '', !input.canConfirm()) + btn('tbDone', 'Done', 'quiet');
+    else if (stage === 'roomDraw') html = btn('tbDone', 'Cancel', 'quiet');
+    else if (stage === 'roomDoor') html = btn('tbConfirm', '✓ Build', '', !input.canConfirm()) + btn('tbRedraw', 'Redraw', 'quiet') + btn('tbDone', 'Cancel', 'quiet');
+    else html = btn('tbDone', 'Done selling', 'quiet');
+    if (html !== this.touchbarHtml) { this.touchbarHtml = html; bar.innerHTML = html; }
+    bar.hidden = false;
   }
 
   private renderTray(force = false) {
@@ -449,8 +493,12 @@ export class Hud {
           </div><div>
             <label style="font-weight:800">Sound volume</label>
             <input type="range" min="0" max="100" value="${Math.round(this.d.sfx.volume * 100)}" data-vol aria-label="Sound volume">
-            <p class="sub" style="margin-top:12px">Press P to hide the interface for screenshots.</p>
-            <button class="btn pink" data-act="newgame">Start a new hospital</button>
+            <p class="sub" style="margin-top:12px">${this.d.input.touch ? 'Twist two fingers to turn the view, pinch to zoom.' : 'Press P to hide the interface for screenshots.'}</p>
+            <div class="row wrap">
+              <button class="btn" data-act="pause">Save, load or quit</button>
+              ${document.fullscreenEnabled ? `<button class="btn quiet" data-act="fullscreen">${document.fullscreenElement ? 'Leave full screen' : 'Full screen'}</button>` : ''}
+              <button class="btn pink" data-act="newgame">Start a new hospital</button>
+            </div>
           </div></div>
           <div class="about"><b>Quackwell General</b>, licensed under the Common Public Attribution License 1.0.${creditHtml()}</div>`;
         break;
@@ -578,12 +626,13 @@ export class Hud {
   private renderGoals() {
     const s = this.world.state;
     const sc = scenarioById(s.scenario);
-    let html = `<button class="collapse" data-act="goals" aria-label="Collapse goals">–</button>`;
+    const min = this.el.goals.classList.contains('min');
+    let html = `<button class="collapse" data-act="goals" aria-label="${min ? 'Show goals' : 'Fold goals away'}" aria-expanded="${!min}">${min ? '+' : '–'}</button>`;
     if (s.sandbox) {
-      html += `<h3>Sandbox</h3><p class="desc" style="font-size:13px;font-weight:600;color:var(--ink-soft)">No goals here. Build whatever you like.</p>`;
+      html += `<h3${min ? ' data-act="goals"' : ''}>Sandbox</h3><p class="desc" style="font-size:13px;font-weight:600;color:var(--ink-soft)">No goals here. Build whatever you like.</p>`;
     } else {
       const next = Math.min(s.stars, 2);
-      html += `<h3>${sc.name}</h3><div class="starline stars" aria-label="${s.stars} of 3 stars">${'★'.repeat(s.stars)}<span class="off">${'★'.repeat(3 - s.stars)}</span></div>`;
+      html += `<h3${min ? ' data-act="goals"' : ''}>${sc.name}</h3><div class="starline stars" aria-label="${s.stars} of 3 stars">${'★'.repeat(s.stars)}<span class="off">${'★'.repeat(3 - s.stars)}</span></div>`;
       if (s.stars < 3) {
         html += `<h4>For ${'★'.repeat(next + 1)}</h4>`;
         sc.stars[next].forEach((g, i) => {
@@ -650,7 +699,8 @@ export class Hud {
     t.innerHTML = `<span class="dot" aria-hidden="true"></span><span>${esc(text)}</span>`;
     t.setAttribute('role', 'status');
     this.el.toasts.appendChild(t);
-    while (this.el.toasts.children.length > 5) this.el.toasts.firstElementChild!.remove();
+    const max = matchMedia('(max-width: 760px), (max-height: 520px)').matches ? 3 : 5;
+    while (this.el.toasts.children.length > max) this.el.toasts.firstElementChild!.remove();
     setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 320); }, 5200);
   }
 

@@ -36,6 +36,11 @@ export class Sfx {
   private musicTimer: number | null = null;
   private beat = 0;
 
+  /** true once the browser has let audio start */
+  get running() {
+    return this.ctx?.state === 'running';
+  }
+
   unlock() {
     if (this.ctx) { void this.ctx.resume(); return; }
     try {

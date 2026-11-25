@@ -17,7 +17,7 @@
  * code written by Blaine Bouvier are Copyright (c) 2026. All Rights Reserved.
  */
 import * as THREE from 'three';
-import type { Engine } from '../render/engine';
+import { isTouchDevice, type Engine } from '../render/engine';
 import type { World } from '../sim/world';
 import type { Ghost } from '../render/ghost';
 import { ITEMS, ROOMS, roomCost, type ItemType, type RoomType } from '../sim/catalog';
@@ -35,7 +35,11 @@ export type Selection = { kind: 'patient' | 'staff' | 'room' | 'item'; id: numbe
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
-/** Translates pointer/keyboard input into tool previews and sim commands. */
+/**
+ * Translates pointer/keyboard input into tool previews and sim commands.
+ * Mouse: hover previews, click acts. Touch: one finger pans (or draws a room), a tap previews and a
+ * second tap on the same spot (or the on-screen action bar) acts; two fingers pan, pinch and twist.
+ */
 export class Input {
   tool: Tool = { kind: 'select' };
   /** false on the title screen */
@@ -48,6 +52,10 @@ export class Input {
   onSpeedKey: ((s: number | 'toggle') => void) | null = null;
   onSfx: ((name: 'click' | 'build' | 'error' | 'drop' | 'whoosh') => void) | null = null;
   onToast: ((text: string, tone: 'info' | 'warn' | 'bad' | 'good') => void) | null = null;
+  /** the last pointer was a finger: tap-to-preview, plus the touch action bar */
+  touch = isTouchDevice();
+  /** item tile last previewed by a tap; tapping it again places the item */
+  private touchPreview = '';
   private mouse = { x: 0, y: 0, inside: false };
   private drag: { ax: number; az: number; bx: number; bz: number } | null = null;
   private roomRect: Rect | null = null;
@@ -60,10 +68,28 @@ export class Input {
 
   constructor(private engine: Engine, private world: World, private ghost: Ghost) {
     const el = engine.renderer.domElement;
-    el.addEventListener('pointermove', (e) => { this.mouse = { x: e.clientX, y: e.clientY, inside: true }; this.move(); });
-    el.addEventListener('pointerleave', () => { this.mouse.inside = false; });
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') {
+        // fingers only steer the room being drawn; otherwise they move the camera
+        if (this.drag && this.down && this.engine.rig.touchCount === 1) { this.mouse = { x: e.clientX, y: e.clientY, inside: true }; this.move(); }
+        return;
+      }
+      this.mouse = { x: e.clientX, y: e.clientY, inside: true };
+      this.move();
+    });
+    el.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'touch') this.mouse.inside = false; });
     el.addEventListener('pointerdown', (e) => this.pointerDown(e));
     window.addEventListener('pointerup', (e) => this.pointerUp(e));
+    window.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch') { this.down = null; this.cancelDrag(); } });
+    // the UI follows whichever pointer was used last, so touch laptops switch cleanly between the two
+    const syncTouch = (e: PointerEvent) => {
+      const t = e.pointerType === 'touch';
+      if (t !== this.touch) { this.touch = t; this.refreshHint(); this.move(true); for (const f of this.onToolChange) f(); }
+      document.body.classList.toggle('touch', t);
+    };
+    window.addEventListener('pointerdown', syncTouch, { capture: true });
+    document.body.classList.toggle('touch', this.touch);
+    engine.rig.touchPanAllowed = () => !(this.tool.kind === 'room' && !this.roomRect);
     window.addEventListener('keydown', (e) => this.key(e));
     const ringGeo = new THREE.RingGeometry(0.34, 0.46, 40).rotateX(-Math.PI / 2);
     this.ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd447').multiplyScalar(2.2), transparent: true, depthWrite: false }));
@@ -87,6 +113,8 @@ export class Input {
     this.roomRect = null;
     this.door = null;
     this.pendingSell = null;
+    this.touchPreview = '';
+    if (this.touch) this.mouse.inside = false;
     this.ghost.hide();
     this.refreshHint();
     for (const f of this.onToolChange) f();
@@ -137,8 +165,27 @@ export class Input {
     }
   }
 
+  private cancelDrag() {
+    if (!this.drag) return;
+    this.drag = null;
+    this.ghost.hide();
+    this.refreshHint();
+  }
+
   private pointerDown(e: PointerEvent) {
     if (!this.enabled) return;
+    if (e.pointerType === 'touch') {
+      // a second finger turns the press into a camera gesture
+      if (this.engine.rig.touchCount > 1) { this.down = null; this.cancelDrag(); return; }
+      this.down = { x: e.clientX, y: e.clientY, button: 0 };
+      if (this.tool.kind === 'room' && !this.roomRect) {
+        this.mouse = { x: e.clientX, y: e.clientY, inside: true };
+        const t = this.tileAt();
+        if (t) this.drag = { ax: t.x, az: t.z, bx: t.x, bz: t.z };
+        this.move();
+      }
+      return;
+    }
     this.down = { x: e.clientX, y: e.clientY, button: e.button };
     if (e.button !== 0) return;
     if (this.tool.kind === 'room' && !this.roomRect) {
@@ -151,6 +198,7 @@ export class Input {
     const d = this.down;
     this.down = null;
     if (!d) return;
+    if (e.pointerType === 'touch') { this.touchUp(e, d); return; }
     const still = Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6;
     if (d.button === 2 && still) {
       // quick right-click: step back out of the current tool
@@ -180,6 +228,94 @@ export class Input {
         if (still) this.sellAtCursor();
         break;
     }
+  }
+
+  private touchUp(e: PointerEvent, d: { x: number; y: number }) {
+    const rig = this.engine.rig;
+    if (this.drag && !this.roomRect) {
+      const r = this.rectOf(this.drag);
+      this.drag = null;
+      // a bare tap is not a room: wait for a real drag
+      if (r.w * r.h === 1) { this.ghost.hide(); this.refreshHint(); return; }
+      this.roomRect = r;
+      this.move(true);
+      return;
+    }
+    const tap = !rig.touchGesture && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 12;
+    if (!tap) return;
+    this.mouse = { x: e.clientX, y: e.clientY, inside: true };
+    switch (this.tool.kind) {
+      case 'select':
+        this.pick(46);
+        break;
+      case 'room': {
+        if (!this.roomRect) break;
+        const g = this.ground();
+        const before = this.door;
+        // tap the door again to build; tap another edge to move it there
+        if (g && before && JSON.stringify(this.nearestDoor(this.roomRect, g)) === JSON.stringify(before)) this.confirmRoom();
+        else this.move(true);
+        break;
+      }
+      case 'item': {
+        const t = this.tileAt();
+        const k = t ? `${t.x},${t.z},${this.tool.rot}` : '';
+        if (k && k === this.touchPreview) this.placeItem();
+        else { this.touchPreview = k; this.move(true); }
+        break;
+      }
+      case 'sell':
+        this.move(true);
+        this.sellAtCursor();
+        break;
+    }
+  }
+
+  /** Touch action bar: what the current tool is waiting for. */
+  touchStage(): 'item' | 'roomDraw' | 'roomDoor' | 'sell' | null {
+    switch (this.tool.kind) {
+      case 'item': return 'item';
+      case 'room': return this.roomRect ? 'roomDoor' : 'roomDraw';
+      case 'sell': return 'sell';
+      default: return null;
+    }
+  }
+
+  /** true when the item preview or room door shown right now can be built */
+  canConfirm(): boolean {
+    if (this.tool.kind === 'item') {
+      const t = this.tileAt();
+      if (!t) return false;
+      const sz = rotatedSize(this.tool.type, this.tool.rot);
+      return validateItem(this.world, this.tool.type, t.x - Math.floor((sz.w - 1) / 2), t.z - Math.floor((sz.d - 1) / 2), this.tool.rot).ok;
+    }
+    if (this.tool.kind === 'room' && this.roomRect && this.door) return validateRoom(this.world, this.tool.type, this.roomRect, this.door).ok;
+    return false;
+  }
+
+  rotateItem() {
+    if (this.tool.kind !== 'item') return;
+    this.tool = { ...this.tool, rot: (this.tool.rot + 1) % 4 };
+    this.touchPreview = '';
+    this.onSfx?.('click');
+    this.move(true);
+  }
+
+  /** Touch action bar's confirm button: place the previewed item or build the room. */
+  confirm() {
+    if (this.tool.kind === 'item') { this.placeItem(); this.touchPreview = ''; }
+    else if (this.tool.kind === 'room') this.confirmRoom();
+  }
+
+  /** Throw away the drawn room outline and draw again. */
+  redrawRoom() {
+    if (this.tool.kind !== 'room') return;
+    this.drag = null;
+    this.roomRect = null;
+    this.door = null;
+    this.ghost.hide();
+    this.refreshHint();
+    for (const f of this.onToolChange) f();
   }
 
   private rectOf(d: { ax: number; az: number; bx: number; bz: number }): Rect {
@@ -246,8 +382,10 @@ export class Input {
           this.door = this.nearestDoor(this.roomRect, g);
           const v = validateRoom(this.world, type, this.roomRect, this.door);
           this.ghost.room(this.roomRect, this.door, v.ok);
-          this.setHint(v.ok ? `Click to build for <b>${money(v.cost)}</b>. Move the cursor to place the door.` : `Door here: <b>${v.reason}</b>`, !v.ok);
-        } else if (t) {
+          const how = this.touch ? 'Tap an edge to move the door, tap the door again or press Build.' : 'Move the cursor to place the door.';
+          this.setHint(v.ok ? `${this.touch ? 'Build' : 'Click to build'} for <b>${money(v.cost)}</b>. ${how}` : `Door here: <b>${v.reason}</b>${this.touch ? '. Tap another edge.' : ''}`, !v.ok);
+          for (const f of this.onToolChange) f();
+        } else if (t && !this.touch) {
           const def = ROOMS[type];
           this.ghost.room({ x: t.x, z: t.z, w: 1, h: 1 }, null, this.world.grid.isCorridor(t.x, t.z));
           this.setHint(`Drag out a ${def.name}: at least <b>${def.minW}×${def.minH}</b> tiles.`, false);
@@ -260,7 +398,9 @@ export class Input {
         const x = t.x - Math.floor((sz.w - 1) / 2), z = t.z - Math.floor((sz.d - 1) / 2);
         const v = validateItem(this.world, this.tool.type, x, z, this.tool.rot);
         this.ghost.itemAt(this.tool.type, x, z, this.tool.rot, v.ok);
-        this.setHint(v.ok ? `Click to place <b>${ITEMS[this.tool.type].name}</b> for <b>${money(v.cost)}</b>. R rotates.` : `<b>${v.reason}</b>. R rotates.`, !v.ok);
+        if (this.touch) this.setHint(v.ok ? `<b>${ITEMS[this.tool.type].name}</b> for <b>${money(v.cost)}</b>. Tap again or press Place.` : `<b>${v.reason}</b>. Tap somewhere else.`, !v.ok);
+        else this.setHint(v.ok ? `Click to place <b>${ITEMS[this.tool.type].name}</b> for <b>${money(v.cost)}</b>. R rotates.` : `<b>${v.reason}</b>. R rotates.`, !v.ok);
+        for (const f of this.onToolChange) f();
         break;
       }
       case 'sell': {
@@ -269,14 +409,14 @@ export class Input {
         if (target?.kind === 'room') {
           const r = this.world.room(target.id)!;
           this.ghost.room(r.rect, null, false);
-          this.setHint(`Click to sell the <b>${ROOMS[r.type].name}</b> (refund about ${money(r.cost / 2)}).`, true);
+          this.setHint(`${this.touch ? 'Tap again' : 'Click'} to sell the <b>${ROOMS[r.type].name}</b> (refund about ${money(r.cost / 2)}).`, true);
         } else if (target?.kind === 'item') {
           const it = this.world.item(target.id)!;
           this.ghost.itemAt(it.type, it.x, it.z, it.rot, false);
-          this.setHint(`Click to sell the <b>${ITEMS[it.type].name}</b> for ${money(it.cost / 2)}.`, true);
+          this.setHint(`${this.touch ? 'Tap again' : 'Click'} to sell the <b>${ITEMS[it.type].name}</b> for ${money(it.cost / 2)}.`, true);
         } else {
           this.ghost.hide();
-          this.setHint('Point at a room or item to sell it.', false);
+          this.setHint(this.touch ? 'Tap a room or item to sell it.' : 'Point at a room or item to sell it.', false);
         }
         break;
       }
@@ -330,11 +470,11 @@ export class Input {
     if (!t) return;
     const target = this.sellTarget(t.x, t.z);
     if (!target) return;
-    if (target.kind === 'room') {
+    if (target.kind === 'room' || this.touch) {
       const now = performance.now();
       if (!this.pendingSell || this.pendingSell.id !== target.id || now > this.pendingSell.until) {
         this.pendingSell = { id: target.id, until: now + 3000 };
-        this.onToast?.('Click the room again to confirm selling it.', 'warn');
+        this.onToast?.(`${this.touch ? 'Tap' : 'Click'} the ${target.kind} again to confirm selling it.`, 'warn');
         return;
       }
       this.pendingSell = null;
@@ -344,8 +484,8 @@ export class Input {
   }
 
   /** Select a character near the cursor, else the room/item under it. */
-  private pick() {
-    const best = this.characterAtCursor();
+  private pick(radius = 34) {
+    const best = this.characterAtCursor(radius);
     if (best) { this.onSfx?.('click'); this.select(best); return; }
     const t = this.tileAt();
     if (!t) { this.select(null); return; }
@@ -358,12 +498,12 @@ export class Input {
     this.select(null);
   }
 
-  private characterAtCursor(): Selection {
+  private characterAtCursor(radius = 34): Selection {
     if (!this.mouse.inside) return null;
     const cam = this.engine.camera;
     const v = new THREE.Vector3();
     let best: Selection = null;
-    let bd = 34 * 34;
+    let bd = radius * radius;
     const check = (kind: 'patient' | 'staff', id: number, x: number, z: number) => {
       v.set(x, 0.7, z).project(cam);
       const sx = (v.x * 0.5 + 0.5) * innerWidth, sy = (-v.y * 0.5 + 0.5) * innerHeight;
@@ -383,9 +523,13 @@ export class Input {
   private refreshHint() {
     switch (this.tool.kind) {
       case 'select': this.setHint('', false); break;
-      case 'room': this.setHint(`Drag out a ${ROOMS[this.tool.type].name}.`, false); break;
-      case 'item': this.setHint(`Click to place. <b>R</b> rotates, <b>Esc</b> finishes.`, false); break;
-      case 'sell': this.setHint('Point at a room or item to sell it.', false); break;
+      case 'room': {
+        const def = ROOMS[this.tool.type];
+        this.setHint(this.touch ? `Drag a finger to mark out the ${def.name}, at least <b>${def.minW}×${def.minH}</b>. Two fingers move the view.` : `Drag out a ${def.name}.`, false);
+        break;
+      }
+      case 'item': this.setHint(this.touch ? 'Tap where it should go.' : `Click to place. <b>R</b> rotates, <b>Esc</b> finishes.`, false); break;
+      case 'sell': this.setHint(this.touch ? 'Tap a room or item to sell it.' : 'Point at a room or item to sell it.', false); break;
     }
   }
 
@@ -416,6 +560,7 @@ export class Input {
       this.ghost.hide();
     }
     this.hoverRing.visible = false;
+    if (this.touch) return;
     if (this.tool.kind === 'select' && !this.down) {
       const h = this.characterAtCursor();
       this.engine.renderer.domElement.style.cursor = h ? 'pointer' : 'default';

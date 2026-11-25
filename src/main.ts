@@ -149,8 +149,13 @@ if (params.has('load') && !loadError) setTimeout(() => { speed = 1; }, 0);
 if (params.get('ui') === '0') document.getElementById('ui')!.style.visibility = 'hidden';
 if (params.has('tray')) hud.toggleTray(params.get('tray') as 'rooms');
 if (params.has('tool')) input.setTool({ kind: 'room', type: params.get('tool') as 'gp' });
-window.addEventListener('pointerdown', () => sfx.unlock(), { once: true });
-window.addEventListener('keydown', () => sfx.unlock(), { once: true });
+// iOS only lets audio start from the end of a tap, so try on every kind of first gesture until it runs
+const unlockAudio = () => {
+  sfx.unlock();
+  if (!sfx.running) return;
+  for (const t of ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const) window.removeEventListener(t, unlockAudio);
+};
+for (const t of ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const) window.addEventListener(t, unlockAudio);
 
 const loop = createLoop((dt) => world.tick(dt), { fixed: 1 / 30, maxSteps: 8 });
 let last = performance.now();

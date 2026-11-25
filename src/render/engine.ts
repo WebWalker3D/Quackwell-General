@@ -45,8 +45,12 @@ export const PRESETS: Record<Quality, Preset> = {
 
 export const QUALITY_NAMES: Record<Quality, string> = { ultra: 'Ultra', high: 'High', medium: 'Medium', low: 'Low' };
 
-/** Integrated GPUs default to High; everything else gets Ultra. */
+/** Phones and tablets: a touch screen is the main pointer. */
+export const isTouchDevice = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+/** Phones and tablets default to Medium, integrated GPUs to High; everything else gets Ultra. */
 export function detectQuality(renderer: THREE.WebGLRenderer): Quality {
+  if (isTouchDevice()) return 'medium';
   try {
     const gl = renderer.getContext();
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
@@ -133,11 +137,21 @@ export class Engine {
 
   resize() {
     const w = innerWidth, h = innerHeight;
-    this.renderer.setPixelRatio(this.preset.pixelRatio * this.renderScale);
+    this.renderer.setPixelRatio(this.pixelRatio() * this.renderScale);
     this.renderer.setSize(w, h);
     this.post.composer.setSize(w, h);
-    this.rig.camera.aspect = w / h;
-    this.rig.camera.updateProjectionMatrix();
+    this.rig.setAspect(w / h);
+  }
+
+  /**
+   * Phone screens are small but dense: one render pixel per CSS pixel looks smeared there, so touch
+   * devices get up to 1.5× the preset ratio (never more than the screen has).
+   */
+  private pixelRatio() {
+    const base = this.preset.pixelRatio;
+    if (!isTouchDevice()) return base;
+    const dpr = window.devicePixelRatio || 1;
+    return Math.min(base * Math.min(dpr, 1.5), Math.min(dpr, 2));
   }
 
   /** Frame-time driven resolution scaling. */

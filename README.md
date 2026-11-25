@@ -28,6 +28,7 @@ no textbook has heard of, all inside a glossy miniature diorama rendered in real
   - **Voltwick Works** is a factory town where the board wants research.
   - **Grand Duckington** is the big city, with a huge building and every illness at once.
 - Sandbox mode: any unlocked town with a million dollars, everything unlocked and no goals.
+- Plays on phones and tablets as well as with a mouse and keyboard. Drag to pan, pinch to zoom, twist to turn the view and tap to build.
 
 **The graphics**
 
@@ -63,22 +64,31 @@ Each [release](https://github.com/WebWalker3D/Quackwell-General/releases) also h
 install. Unzip it and serve the folder with any static web server, for example `npx serve quackwell-general`.
 Opening `index.html` straight from disk won't work, because browsers block its scripts there.
 
-| Action | Control |
-|---|---|
-| Pan | Right-drag, middle-drag, WASD or arrow keys |
-| Zoom | Mouse wheel |
-| Rotate the view | Q / E |
-| Pause, speeds | Space, 1, 2, 3 |
-| Rooms, Items, Staff, Research, Hospital | B, N, H, L, J |
-| Pause menu (save and load) | Esc |
-| Sell tool | X |
-| Rotate an item before placing it | R |
-| Sell the selected room or item | Delete (twice for rooms) |
-| Hide the interface | P |
+| Action | Mouse and keyboard | Touch |
+|---|---|---|
+| Pan | Right-drag, middle-drag, WASD or arrow keys | Drag one finger, or two |
+| Zoom | Mouse wheel | Pinch |
+| Rotate the view | Q / E | Twist two fingers, or the ⟲ ⟳ buttons |
+| Pause, speeds | Space, 1, 2, 3 | The buttons in the top bar |
+| Rooms, Items, Staff, Research, Hospital | B, N, H, L, J | The toolbar at the bottom |
+| Build a room | Drag out the floor, move the cursor to place the door, click | Drag a finger to mark out the floor, tap an edge for the door, then Build |
+| Place an item | Click | Tap to preview, then tap again or press Place |
+| Rotate an item before placing it | R | Rotate button |
+| Pause menu (save and load) | Esc, or Settings → Save, load or quit | Settings → Save, load or quit |
+| Sell tool | X | Scissors button, then tap twice |
+| Sell the selected room or item | Delete (twice for rooms) | Sell button in the inspector |
+| Hide the interface | P | |
+
+<img src="docs/images/phone.jpg" alt="The game on a phone, with a doctor's details open" width="260" align="right">
+
+On a phone the top bar folds into two rows, the goals clipboard folds down to a tab you can tap open, and the
+inspector slides up from the bottom. While you are building, the toolbar swaps for Place, Rotate, Build and Done
+buttons. Both portrait and landscape work. Settings also has a Full screen button where the browser allows it
+(not on iPhone; there, Add to Home Screen gives you the same thing).
 
 ### Graphics settings
 
-Settings has four presets. The game picks High on integrated graphics and Ultra on dedicated cards. Ultra
+Settings has four presets. The game picks Medium on phones and tablets, High on integrated graphics and Ultra on dedicated cards. Ultra
 adds screen-space ambient occlusion, 4K shadow maps and about 70,000 grass blades. On every preset the
 render resolution drops automatically if the frame rate falls below 45 fps; you can switch this off.
 
@@ -125,6 +135,7 @@ These URL flags are handy with them:
 - **Milestone 2 (done):** staff needs and training, janitors, machine wear, research, emergencies, inspections, awards, saving and loading.
 - **Milestone 3 (done):** a campaign of five themed hospitals with star goals, a sandbox mode and a title screen.
 - **Hosted build (done):** playable on GitHub Pages, redeployed on every push to `main`.
+- **Phones and tablets (done):** touch controls and a compact layout for small screens.
 - **Next:** more illnesses and rooms, staff traits that matter more.
 
 ## License

@@ -20,7 +20,7 @@ import * as THREE from 'three';
 
 const damp = (a: number, b: number, lambda: number, dt: number) => a + (b - a) * (1 - Math.exp(-lambda * dt));
 
-/** Sim-game camera: pan (keys / right-drag / middle-drag), zoom to cursor, 90° rotation steps. */
+/** Sim-game camera: pan (keys / right-drag / middle-drag / one-finger drag), zoom to cursor or pinch, 90° rotation steps (Q/E or a two-finger twist). */
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   target = new THREE.Vector3(22, 0, 18);
@@ -38,9 +38,19 @@ export class CameraRig {
   bounds = { minX: -2, maxX: 50, minZ: -2, maxZ: 42 };
   onYawStep: ((quadrant: number) => void) | null = null;
   private lastQuadrant = -1;
+  /** Asked when a single finger goes down: may that finger pan the view? (false while drawing a room) */
+  touchPanAllowed: () => boolean = () => true;
+  /** true once the current touch has panned, pinched or twisted, so the lift is not a tap */
+  touchGesture = false;
+  private touches = new Map<number, { x: number; y: number }>();
+  private pinch: { span: number; dist: number; angle: number; twist: number } | null = null;
+  private touchPan: { id: number; x: number; y: number; ground: THREE.Vector3; moving: boolean } | null = null;
+  /** vertical field of view for landscape screens; narrow screens widen it so the hospital still fits */
+  private baseFov = 30;
 
   constructor(private dom: HTMLElement, aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(30, aspect, 0.5, 900);
+    this.camera = new THREE.PerspectiveCamera(this.baseFov, aspect, 0.5, 900);
+    this.setAspect(aspect);
     this.attach();
     this.apply(0);
   }
@@ -75,6 +85,15 @@ export class CameraRig {
     if (dist) this.goalDist = this.dist = dist;
   }
 
+  /** Portrait phones keep roughly the horizontal view of a 4:3 screen, up to a 50° vertical field of view. */
+  setAspect(aspect: number) {
+    const c = this.camera;
+    c.aspect = aspect;
+    const ref = 4 / 3;
+    c.fov = aspect >= ref ? this.baseFov : Math.min(50, THREE.MathUtils.radToDeg(2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(this.baseFov / 2)) * ref) / aspect)));
+    c.updateProjectionMatrix();
+  }
+
   groundAt(clientX: number, clientY: number): THREE.Vector3 | null {
     const r = this.dom.getBoundingClientRect();
     const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
@@ -96,6 +115,7 @@ export class CameraRig {
     window.addEventListener('blur', () => this.keys.clear());
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') { this.touchDown(e); return; }
       if (e.button !== 1 && e.button !== 2) return;
       const g = this.groundAt(e.clientX, e.clientY);
       if (!g) return;
@@ -103,6 +123,7 @@ export class CameraRig {
       el.setPointerCapture(e.pointerId);
     });
     el.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') { this.touchMove(e); return; }
       if (!this.drag) return;
       const g = this.groundAt(e.clientX, e.clientY);
       if (!g) return;
@@ -111,9 +132,14 @@ export class CameraRig {
       this.target.add(delta);
       this.apply(0);
     });
-    const end = () => { this.drag = null; };
+    const end = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') this.touchUp(e);
+      else this.drag = null;
+    };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
+    // stop iOS Safari zooming the whole page on a pinch
+    el.addEventListener('gesturestart', (e) => e.preventDefault());
     el.addEventListener('wheel', (e) => {
       e.preventDefault();
       const f = Math.exp(Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 200) * 0.0022);
@@ -125,6 +151,111 @@ export class CameraRig {
       }
       this.goalDist = next;
     }, { passive: false });
+  }
+
+  private touchDown(e: PointerEvent) {
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.touches.size === 1) {
+      this.touchGesture = false;
+      this.pinch = null;
+      const g = this.touchPanAllowed() ? this.groundAt(e.clientX, e.clientY) : null;
+      this.touchPan = g ? { id: e.pointerId, x: e.clientX, y: e.clientY, ground: g, moving: false } : null;
+    } else if (this.touches.size === 2) {
+      this.touchGesture = true;
+      this.touchPan = null;
+      this.startPinch();
+    }
+  }
+
+  private startPinch() {
+    const [a, b] = [...this.touches.values()];
+    this.pinch = { span: Math.max(20, Math.hypot(b.x - a.x, b.y - a.y)), dist: this.goalDist, angle: Math.atan2(b.y - a.y, b.x - a.x), twist: 0 };
+  }
+
+  private touchMove(e: PointerEvent) {
+    const t = this.touches.get(e.pointerId);
+    if (!t) return;
+    t.x = e.clientX;
+    t.y = e.clientY;
+    if (this.pinch && this.touches.size >= 2) {
+      const [a, b] = [...this.touches.values()];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const anchor = this.groundAt(mx, my);
+      // pinch: zoom so the ground under the fingers' midpoint stays put
+      const span = Math.max(20, Math.hypot(b.x - a.x, b.y - a.y));
+      this.goalDist = this.dist = THREE.MathUtils.clamp((this.pinch.dist * this.pinch.span) / span, 9, 85);
+      this.apply(0);
+      const after = this.groundAt(mx, my);
+      if (anchor && after) {
+        const delta = anchor.sub(after);
+        this.goalTarget.add(delta);
+        this.target.add(delta);
+      }
+      // two-finger pan: keep the midpoint's ground under the midpoint as it moves
+      const prev = this.pinchMid;
+      if (prev) {
+        const g0 = this.groundAt(prev.x, prev.y), g1 = this.groundAt(mx, my);
+        if (g0 && g1) {
+          const d = g0.sub(g1);
+          this.goalTarget.add(d);
+          this.target.add(d);
+        }
+      }
+      this.pinchMid = { x: mx, y: my };
+      // twist: a quarter turn each time the fingers rotate about 35°
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      let dA = ang - this.pinch.angle;
+      dA = Math.atan2(Math.sin(dA), Math.cos(dA));
+      this.pinch.angle = ang;
+      this.pinch.twist += dA;
+      if (Math.abs(this.pinch.twist) > 0.6) {
+        this.rotate(this.pinch.twist > 0 ? -1 : 1);
+        this.pinch.twist = 0;
+      }
+      this.clampTarget();
+      this.apply(0);
+      return;
+    }
+    const p = this.touchPan;
+    if (!p || p.id !== e.pointerId) return;
+    if (!p.moving && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 10) return;
+    p.moving = true;
+    this.touchGesture = true;
+    const g = this.groundAt(e.clientX, e.clientY);
+    if (!g) return;
+    const delta = p.ground.clone().sub(g);
+    this.goalTarget.add(delta);
+    this.target.add(delta);
+    this.clampTarget();
+    this.apply(0);
+  }
+
+  private pinchMid: { x: number; y: number } | null = null;
+
+  private touchUp(e: PointerEvent) {
+    this.touches.delete(e.pointerId);
+    this.pinchMid = null;
+    if (this.touches.size >= 2) { this.startPinch(); return; }
+    this.pinch = null;
+    // one finger left after a pinch: let it carry on panning from where it is
+    if (this.touches.size === 1) {
+      const [id, t] = [...this.touches.entries()][0];
+      const g = this.groundAt(t.x, t.y);
+      this.touchPan = g ? { id, x: t.x, y: t.y, ground: g, moving: true } : null;
+    } else this.touchPan = null;
+  }
+
+  /** number of fingers currently on the canvas */
+  get touchCount() {
+    return this.touches.size;
+  }
+
+  private clampTarget() {
+    const b = this.bounds;
+    for (const v of [this.goalTarget, this.target]) {
+      v.x = THREE.MathUtils.clamp(v.x, b.minX, b.maxX);
+      v.z = THREE.MathUtils.clamp(v.z, b.minZ, b.maxZ);
+    }
   }
 
   update(dt: number) {
